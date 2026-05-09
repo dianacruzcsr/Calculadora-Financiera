@@ -5,8 +5,8 @@ from scipy.stats import norm
 import math
 
 st.set_page_config(page_title="Calculadora Financiera", layout="wide")
-st.title("📊 Calculadora de Matemáticas Financieras")
-st.markdown("Basada en el modelo de Excel proporcionado")
+st.title("Calculadora de Matemáticas Financieras")
+st.markdown("Temas selectos III- Diana Laura Cruz Cisneros")
 
 menu = st.sidebar.selectbox(
     "Selecciona una sección",
@@ -41,7 +41,7 @@ if menu == "Conversión de tasas":
     st.markdown("### La triple igualdad de tasas de interés")
     
     # De tasas nominales i(m) a tasas efectivas i e instantáneas d
-    st.subheader("📌 De tasas nominales i(m) a tasas efectivas i e instantáneas δ")
+    st.subheader(" De tasas nominales i(m) a tasas efectivas i e instantáneas δ")
     col1, col2 = st.columns(2)
     
     with col1:
@@ -63,7 +63,7 @@ if menu == "Conversión de tasas":
     st.markdown("---")
     
     # De tasas instantáneas d a tasa efectiva i
-    st.subheader("📌 De tasas instantáneas δ a tasa efectiva i")
+    st.subheader("De tasas instantáneas δ a tasa efectiva i")
     col3, col4 = st.columns(2)
     
     with col3:
@@ -78,7 +78,7 @@ if menu == "Conversión de tasas":
     st.markdown("---")
     
     # De tasas instantáneas d a tasas nominales i(m)
-    st.subheader("📌 De tasas instantáneas δ a tasas nominales i(m)")
+    st.subheader("De tasas instantáneas δ a tasas nominales i(m)")
     col5, col6 = st.columns(2)
     
     with col5:
@@ -95,7 +95,7 @@ if menu == "Conversión de tasas":
     st.markdown("---")
     
     # De tasas nominales i(m) a tasas nominales i(p)
-    st.subheader("📌 De tasas nominales i(m) a tasas nominales i(p)")
+    st.subheader("De tasas nominales i(m) a tasas nominales i(p)")
     col7, col8 = st.columns(2)
     
     with col7:
@@ -114,7 +114,7 @@ if menu == "Conversión de tasas":
     st.markdown("---")
     
     # Ilustración de la reinversión
-    st.subheader("📌 Ilustración de la reinversión de intereses")
+    st.subheader("Ilustración de la reinversión de intereses")
     col9, col10 = st.columns(2)
     
     with col9:
