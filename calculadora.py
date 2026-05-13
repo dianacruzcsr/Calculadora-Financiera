@@ -41,9 +41,7 @@ menu = st.sidebar.selectbox(
         "Acciones",
         "Forward",
         "Opciones",
-        "Opciones Black-Scholes",
         "Determinación Yield",
-        "Acciones: rendimiento requerido",
     ],
 )
 
