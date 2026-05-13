@@ -165,14 +165,23 @@ if menu == "Conversión de tasas":
 
         col1, col2 = st.columns(2)
         with col1:
-            i_ef = st.number_input(
-                "Tasa efectiva anual i", value=0.10, step=0.01, format="%.4f",
-                help="Tasa de interés efectiva anual",
+            i_nom = st.number_input(
+                "Tasa nominal anual i", value=0.10, step=0.01, format="%.4f",
+                help="Tasa nominal anual que se capitaliza m veces al año.",
             )
             C0 = st.number_input(
                 "Capital inicial C₀", value=100_000.0, step=1_000.0, format="%.2f",
             )
-            n = st.number_input("Años n", value=10, min_value=1, step=1)
+            n = st.number_input(
+                "Años n", value=1, min_value=1, step=1,
+                help="Horizonte de capitalización. El Excel ilustra n=1 (al cabo de 1 año).",
+            )
+
+        st.info(
+            "La tabla muestra cómo crece C₀ al cabo de **n años** "
+            "capitalizando m veces por año con la misma tasa nominal i. "
+            "El Excel usa n=1 para comparar frecuencias en igualdad de condiciones."
+        )
 
         # Períodos estándar (igual que el Excel)
         periodos = [
@@ -190,10 +199,10 @@ if menu == "Conversión de tasas":
         ]
 
         def saldo(m_val):
-            return C0 * (1 + i_ef / m_val) ** (m_val * n)
+            return C0 * (1 + i_nom / m_val) ** (m_val * n)
 
         filas = [(lbl, m_val, saldo(m_val)) for lbl, m_val in periodos]
-        saldo_inst = C0 * np.exp(i_ef * n)
+        saldo_inst = C0 * np.exp(i_nom * n)
         filas.append(("Instantánea", np.inf, saldo_inst))
 
         df = pd.DataFrame(filas, columns=["Período de reinversión", "m = Veces al año", "Monto acumulado"])
@@ -206,13 +215,13 @@ if menu == "Conversión de tasas":
 
         # Gráfica — igual estructura que el Excel
         m_vals = np.array([0.25, 0.5, 1, 2, 4, 12, 52, 365, 8_760, 525_600])
-        saldos = C0 * (1 + i_ef / m_vals) ** (m_vals * n)
+        saldos = C0 * (1 + i_nom / m_vals) ** (m_vals * n)
 
-        puntos_etiqueta = [(0.25, C0*(1+i_ef/0.25)**(0.25*n)),
-                           (0.5,  C0*(1+i_ef/0.5)**(0.5*n)),
-                           (1,    C0*(1+i_ef)**n),
-                           (2,    C0*(1+i_ef/2)**(2*n)),
-                           (12,   C0*(1+i_ef/12)**(12*n))]
+        puntos_etiqueta = [(0.25, C0*(1+i_nom/0.25)**(0.25*n)),
+                           (0.5,  C0*(1+i_nom/0.5)**(0.5*n)),
+                           (1,    C0*(1+i_nom)**n),
+                           (2,    C0*(1+i_nom/2)**(2*n)),
+                           (12,   C0*(1+i_nom/12)**(12*n))]
 
         fig2, ax2 = plt.subplots(figsize=(9, 4.5))
         ax2.plot(m_vals, saldos, color="#10b981", marker="o", markersize=5)
