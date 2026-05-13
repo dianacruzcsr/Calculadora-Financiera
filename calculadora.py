@@ -25,7 +25,10 @@ menu = st.sidebar.selectbox(
         "Bonos",
         "Acciones",
         "Forward",
-        "Opciones Black-Scholes"
+        "Opciones",
+        "Opciones Black-Scholes",
+        "Determinación Yield",
+        "Acciones: rendimiento requerido"
     ]
 )
 
@@ -39,7 +42,9 @@ if menu == "Conversión de tasas":
         "Conversión",
         [
             "Nominal a efectiva e instantánea",
-            "Instantánea a efectiva"
+            "Instantánea a efectiva",
+            "Instantánea a nominal",
+            "Nominal a nominal"
         ]
     )
 
@@ -58,6 +63,46 @@ if menu == "Conversión de tasas":
         i = np.exp(d) - 1
 
         st.success(f"Tasa efectiva: {i:.6f}")
+
+        st.latex(r"i = e^{\delta}-1")
+
+    # ------------------------------
+    # INSTANTÁNEA A NOMINAL
+    # ------------------------------
+    elif tipo == "Instantánea a nominal":
+        d = st.number_input("Tasa instantánea δ", value=0.07)
+        m = st.number_input("m", value=2.0)
+
+        i_nom = m * (np.exp(d / m) - 1)
+
+        st.success(f"Tasa nominal i(m): {i_nom:.6%}")
+
+        st.latex(r"i^{(m)} = m\left(e^{\delta/m}-1\right)")
+
+    # ------------------------------
+    # NOMINAL A NOMINAL
+    # ------------------------------
+    else:
+        m = st.number_input("Frecuencia m", value=2.0)
+        i_m = st.number_input("Tasa nominal i(m)", value=0.10)
+        p = st.number_input("Nueva frecuencia p", value=3.0)
+
+        i_p = p * ((1 + i_m / m) ** (m / p) - 1)
+
+        st.success(f"Tasa nominal equivalente i(p): {i_p:.6%}")
+
+        st.latex(r"i^{(p)} = p\left[\left(1+\frac{i^{(m)}}{m}\right)^{m/p}-1\right]")
+
+        frecuencias = np.array([0.25, 0.5, 1, 2, 4, 12, 52, 365])
+        tasas = frecuencias * ((1 + i_m / m) ** (m / frecuencias) - 1)
+
+        fig, ax = plt.subplots()
+        ax.plot(frecuencias, tasas, marker='o')
+        ax.set_title("Convergencia de tasas nominales")
+        ax.set_xlabel("Frecuencia")
+        ax.set_ylabel("Tasa equivalente")
+
+        st.pyplot(fig)
 
 # ==============================
 # VALOR FUTURO
@@ -251,6 +296,44 @@ elif menu == "Rentas crecientes":
         st.error("La tasa i no puede ser igual a q")
 
 # ==============================
+# DETERMINACIÓN DE YIELD
+# ==============================
+elif menu == "Determinación Yield":
+    st.header("Determinación de Yield")
+
+    precio = st.number_input("Precio del bono", value=950.0)
+    VN = st.number_input("Valor nominal", value=1000.0)
+    cupon = st.number_input("Cupón anual", value=0.08)
+    T = st.number_input("Años al vencimiento", value=5)
+    m = st.number_input("Pagos por año", value=2)
+
+    n = int(T * m)
+    C = VN * cupon / m
+
+    def precio_bono(y):
+        r = y / m
+        flujo = sum(C / ((1 + r) ** t) for t in range(1, n + 1))
+        flujo += VN / ((1 + r) ** n)
+        return flujo
+
+    tasas = np.linspace(0.001, 0.30, 1000)
+    precios = [precio_bono(y) for y in tasas]
+
+    idx = np.argmin(np.abs(np.array(precios) - precio))
+    ytm = tasas[idx]
+
+    st.success(f"Yield aproximado = {ytm:.6%}")
+
+    fig, ax = plt.subplots()
+    ax.plot(tasas, precios)
+    ax.axhline(precio)
+    ax.set_title("Precio del bono vs Yield")
+    ax.set_xlabel("Yield")
+    ax.set_ylabel("Precio")
+
+    st.pyplot(fig)
+
+# ==============================
 # BONOS
 # ==============================
 elif menu == "Bonos":
@@ -270,6 +353,22 @@ elif menu == "Bonos":
     precio += VN / ((1 + r) ** n)
 
     st.success(f"Precio del bono = {precio:,.2f}")
+
+# ==============================
+# RENDIMIENTO REQUERIDO DE ACCIONES
+# ==============================
+elif menu == "Acciones: rendimiento requerido":
+    st.header("Rendimiento requerido")
+
+    D1 = st.number_input("Dividendo esperado D1", value=5.0)
+    P0 = st.number_input("Precio actual", value=45.0)
+    g = st.number_input("Crecimiento g", value=0.04)
+
+    R = (D1 / P0) + g
+
+    st.success(f"Rendimiento requerido = {R:.6%}")
+
+    st.latex(r"R = rac{D_1}{P_0} + g")
 
 # ==============================
 # ACCIONES
@@ -301,6 +400,33 @@ elif menu == "Acciones":
         precio = PE * EPS
 
         st.success(f"Precio estimado = {precio:,.2f}")
+
+# ==============================
+# OPCIONES
+# ==============================
+elif menu == "Opciones":
+    st.header("Payoff de Opciones")
+
+    tipo = st.selectbox("Tipo", ["Call", "Put"])
+
+    K = st.number_input("Strike", value=100.0)
+    prima = st.number_input("Prima", value=10.0)
+
+    ST = np.linspace(0, 2 * K, 200)
+
+    if tipo == "Call":
+        payoff = np.maximum(ST - K, 0) - prima
+    else:
+        payoff = np.maximum(K - ST, 0) - prima
+
+    fig, ax = plt.subplots()
+    ax.plot(ST, payoff)
+    ax.axhline(0)
+    ax.set_title(f"Payoff {tipo}")
+    ax.set_xlabel("Precio al vencimiento")
+    ax.set_ylabel("Ganancia")
+
+    st.pyplot(fig)
 
 # ==============================
 # FORWARD
