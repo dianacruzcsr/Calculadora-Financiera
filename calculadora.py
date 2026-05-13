@@ -48,19 +48,6 @@ if menu == "Conversión de tasas":
         ]
     )
 
-    if menu == "Conversión de tasas":
-    st.header("Conversión de tasas")
-
-    tipo = st.selectbox(
-        "Conversión",
-        [
-            "Nominal a efectiva e instantánea",
-            "Instantánea a efectiva",
-            "Instantánea a nominal",
-            "Nominal a nominal"
-        ]
-    )
-
     if tipo == "Nominal a efectiva e instantánea":
         i_nom = st.number_input("Tasa nominal i(m)", value=0.40)
         m = st.number_input("m", value=2.0)
@@ -379,7 +366,7 @@ elif menu == "Acciones: rendimiento requerido":
 
     st.success(f"Rendimiento requerido = {R:.6%}")
 
-    st.latex(r"R = rac{D_1}{P_0} + g")
+    st.latex(r"R = \frac{D_1}{P_0} + g")
 
 # ==============================
 # ACCIONES
