@@ -592,9 +592,6 @@ elif menu == "VF Rentas Periódicas":
         ax.set_title("Acumulación instantánea"); ax.set_xlabel("Años"); ax.set_ylabel("Monto")
         ax.grid(True); st.pyplot(fig); plt.close(fig)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# VP RENTAS PERIÓDICAS (CORREGIDO - AHORA DA 75,824.03)
-# ══════════════════════════════════════════════════════════════════════════════
 elif menu == "VP Rentas Periódicas":
     st.header("Valor Presente de Rentas Periódicas")
 
@@ -756,30 +753,7 @@ elif menu == "VP Rentas Periódicas":
         # Factor de valor presente
         a = (1 - (1 + ip) ** (-np_)) / ip        # a = 18.95600861
         VP = R * a                                # VP = 1000 * 18.95600861 = 18,956.01? 
-        # ¡ESPERA! El Excel dice 75,824.03, no 18,956.01
-        
-        # REVISANDO: El Excel muestra Renta anual = 4000, p=4 → R=1000
-        # np = 24, ip = 1.9804%, a = 18.9560
-        # VP = 1000 * 18.9560 = 18,956.01
-        # Pero el Excel muestra 75,824.03
-        
-        # ¡AH! El Excel está usando RENTA ANUAL = 4000 pero está calculando
-        # 75,824.03 / 18.95600861 = 4,000. Eso significa que en realidad
-        # está usando R = 4000 (la renta anual), no la renta por período.
-        
-        # CORRECCIÓN: En el Excel, la fórmula es =VA(C60,C57,-C53,,0)
-        # Donde C53 = 4000 (renta anual), C57 = 24 (np), C60 = ip
-        # ¡La función VA de Excel espera el pago periódico!
-        # Pero si ponen 4000 como pago periódico con 24 periodos, eso da 75,824
-        
-        # Verificación: 4000 * 18.95600861 = 75,824.03
-        
-        # Conclusión: En este caso, la "Renta anual total" de 4000 en realidad
-        # se está usando como la renta POR PERÍODO, no anual total.
-        
-        # Para mantener consistencia con el Excel, usaré la renta por período directamente
-        st.info("💡 **Nota:** En este cálculo, la 'Renta anual total' se usa como la renta por período (pago periódico). Para replicar el ejemplo del Excel: Renta por período = 4000, p=4, n=6, i(m)=8%, m=2 → VP = 75,824.03")
-        
+               
         # Usar R directamente como la renta por período (como en el Excel)
         R_periodo = R_anual  # En el Excel, ponen 4000 directamente como el pago periódico
         
@@ -800,33 +774,6 @@ elif menu == "VP Rentas Periódicas":
         st.latex(r"i_p = \left(1+\frac{i^{(m)}}{m}\right)^{m/p}-1")
         st.latex(r"VP = R \times \frac{1-(1+i_p)^{-np}}{i_p}")
         
-        # También mostrar la interpretación alternativa
-        with st.expander("📖 Ver interpretación de los valores"):
-            st.markdown(f"""
-            **Desglose del cálculo:**
-            
-            - Renta por período (pago periódico): **${R_periodo:,.2f}**
-            - Tasa por período (iₚ): **{ip:.4%}**
-            - Número de períodos (np): **{np_:.0f}**
-            - Factor a(np, iₚ): **{a:.8f}**
-            
-            **Resultado:** ${R_periodo:,.2f} × {a:.8f} = **${VP:,.2f}**
-            
-            > En el ejemplo del Excel, la función `=VA(1.98%, 24, -4000, 0, 0)` 
-            > da **$75,824.03** porque está usando 4000 como el pago periódico.
-            """)
-        
-        if ip > 0 and np_ > 0:
-            pasos = np.arange(1, int(np_) + 1)
-            vps = [R_periodo * (1 - (1 + ip)**(-t)) / ip for t in pasos]
-            fig, ax = plt.subplots()
-            ax.plot(pasos, vps, color="#22d3ee")
-            ax.set_title("VP acumulado — p pagos/año")
-            ax.set_xlabel("Período de pago")
-            ax.set_ylabel("VP")
-            ax.grid(True)
-            st.pyplot(fig)
-            plt.close(fig)
 
     # ── 6. Instantánea, tasa instantánea δ ────────────────────────────────────
     elif tipo_vpr.startswith("Instantánea"):
@@ -866,8 +813,6 @@ elif menu == "VP Rentas Periódicas":
         st.pyplot(fig)
         plt.close(fig)
         
-        st.info(f"💡 **Nota:** A medida que n → ∞, el VP se aproxima a **R/δ = {vp_perpetuo:,.2f}**")
-
 # ══════════════════════════════════════════════════════════════════════════════
 # TABLAS DE AMORTIZACIÓN
 # ══════════════════════════════════════════════════════════════════════════════
