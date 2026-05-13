@@ -1932,22 +1932,423 @@ elif menu == "Acciones":
 # OPCIONES
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "Opciones":
-    st.header("Payoff de Opciones")
-
-    tipo = st.selectbox("Tipo", ["Call", "Put"])
-    K = st.number_input("Strike", value=100.0)
-    prima = st.number_input("Prima", value=10.0)
-
-    ST = np.linspace(0, 2 * K, 200)
-    payoff = np.maximum(ST - K, 0) - prima if tipo == "Call" else np.maximum(K - ST, 0) - prima
-
-    fig, ax = plt.subplots()
-    ax.plot(ST, payoff, color="#22d3ee")
-    ax.axhline(0, color="#64748b", linewidth=0.8)
-    ax.set_title(f"Payoff {tipo}"); ax.set_xlabel("Precio al vencimiento")
-    ax.set_ylabel("Ganancia"); ax.grid(True)
-    st.pyplot(fig); plt.close(fig)
-
+    st.header("Opciones - Valuación Black-Scholes")
+    
+    tipo_opcion = st.selectbox(
+        "Tipo de activo subyacente",
+        [
+            "Payoff de opciones (Call/Put)",
+            "Black-Scholes - Activos sin ingresos ni costos",
+            "Black-Scholes - Activos con ingresos discretos",
+            "Black-Scholes - Activos con yield continuo (q)",
+            "Black-Scholes - Opciones sobre divisas",
+        ],
+    )
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 1. PAYOFF DE OPCIONES (gráfico básico)
+    # ──────────────────────────────────────────────────────────────────────────
+    if tipo_opcion == "Payoff de opciones (Call/Put)":
+        st.markdown("**Payoff de Opciones al Vencimiento**")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            tipo = st.selectbox("Tipo de opción", ["Call", "Put"])
+            K = st.number_input("Precio de ejercicio (Strike) K", value=100.0, step=5.0, format="%.2f")
+            prima = st.number_input("Prima de la opción", value=10.0, step=1.0, format="%.2f")
+        
+        ST = np.linspace(0, 2 * K, 200)
+        
+        if tipo == "Call":
+            payoff = np.maximum(ST - K, 0) - prima
+            ganancia_break = K + prima
+            st.info(f"**Punto de equilibrio (Call):** ${ganancia_break:.2f} (Strike + Prima)")
+        else:
+            payoff = np.maximum(K - ST, 0) - prima
+            ganancia_break = K - prima
+            st.info(f"**Punto de equilibrio (Put):** ${ganancia_break:.2f} (Strike - Prima)")
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(ST, payoff, color="#22d3ee", linewidth=2.5)
+        ax.axhline(0, color="#64748b", linewidth=1, linestyle="--")
+        ax.axvline(K, color="#f59e0b", linestyle="--", alpha=0.7, label=f"Strike = ${K:.2f}")
+        ax.axvline(ganancia_break, color="#10b981", linestyle="--", alpha=0.7, label=f"Break-even = ${ganancia_break:.2f}")
+        ax.fill_between(ST, payoff, 0, where=(payoff > 0), color="#22d3ee", alpha=0.3, label="Ganancia")
+        ax.fill_between(ST, payoff, 0, where=(payoff < 0), color="#ef4444", alpha=0.3, label="Pérdida")
+        ax.set_xlabel("Precio del activo al vencimiento (Sₜ)")
+        ax.set_ylabel("Ganancia / Pérdida")
+        ax.set_title(f"Payoff de Opción {tipo} (Prima = ${prima:.2f})")
+        ax.legend(loc="upper left")
+        ax.grid(True, alpha=0.3)
+        st.pyplot(fig)
+        plt.close(fig)
+        
+        st.caption(f"""
+        **Interpretación:**
+        - Pérdida máxima: **${prima:.2f}** (si la opción expira sin valor)
+        - Ganancia máxima: **Ilimitada** (para Call) o **${K - prima:.2f}** (para Put)
+        """)
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 2. BLACK-SCHOLES - ACTIVOS SIN INGRESOS NI COSTOS
+    # ──────────────────────────────────────────────────────────────────────────
+    elif tipo_opcion == "Black-Scholes - Activos sin ingresos ni costos":
+        st.markdown("**Determinación de precios de opciones Call y Put para activos sin ingresos ni costos**")
+        st.markdown("""
+        **Fórmulas de Black-Scholes para activos sin dividendos:**
+        
+        $$c = S_0 \\cdot N(d_1) - K \\cdot e^{-rT} \\cdot N(d_2)$$
+        
+        $$p = K \\cdot e^{-rT} \\cdot N(-d_2) - S_0 \\cdot N(-d_1)$$
+        
+        Donde:
+        $$d_1 = \\frac{\\ln(S_0/K) + (r + \\sigma^2/2)T}{\\sigma\\sqrt{T}}$$
+        $$d_2 = d_1 - \\sigma\\sqrt{T}$$
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            S0 = st.number_input("Precio spot del activo S₀", value=34.97, step=1.0, format="%.4f")
+            K = st.number_input("Precio de ejercicio (Strike) K", value=34.97, step=1.0, format="%.4f")
+            r = st.number_input("Tasa libre de riesgo r", value=0.0681, step=0.001, format="%.4f")
+            sigma = st.number_input("Volatilidad σ", value=0.048, step=0.001, format="%.4f", 
+                                    help="Desviación estándar del rendimiento del activo")
+            T = st.number_input("Tiempo hasta vencimiento T (años)", value=1.0, step=0.25, format="%.4f")
+        
+        # Cálculos Black-Scholes
+        d1 = (np.log(S0 / K) + (r + sigma ** 2 / 2) * T) / (sigma * np.sqrt(T)) if T > 0 and sigma > 0 else 0
+        d2 = d1 - sigma * np.sqrt(T) if T > 0 and sigma > 0 else 0
+        
+        N_d1 = norm.cdf(d1)
+        N_d2 = norm.cdf(d2)
+        N_menos_d1 = norm.cdf(-d1)
+        N_menos_d2 = norm.cdf(-d2)
+        
+        call = S0 * N_d1 - K * np.exp(-r * T) * N_d2
+        put = K * np.exp(-r * T) * N_menos_d2 - S0 * N_menos_d1
+        
+        with col2:
+            st.success(f"**Precio Call (c) = ${call:.4f}**")
+            st.success(f"**Precio Put (p) = ${put:.4f}**")
+            
+            st.caption(f"""
+            **Parámetros calculados:**
+            - d₁ = **{d1:.4f}**  |  N(d₁) = **{N_d1:.4f}**
+            - d₂ = **{d2:.4f}**  |  N(d₂) = **{N_d2:.4f}**
+            - N(-d₁) = **{N_menos_d1:.4f}**
+            - N(-d₂) = **{N_menos_d2:.4f}**
+            """)
+            
+            # Paridad Put-Call
+            paridad = call + K * np.exp(-r * T) - put
+            st.caption(f"**Verificación Paridad Put-Call:** S₀ = ${S0:.4f} | Valor calculado: ${paridad:.4f}")
+        
+        # Gráfico de precios de opciones vs spot
+        st.subheader("📈 Precios de opciones vs Precio spot")
+        
+        precios_spot = np.linspace(max(0.5, S0 * 0.5), S0 * 1.5, 50)
+        calls = []
+        puts = []
+        
+        for s in precios_spot:
+            d1_s = (np.log(s / K) + (r + sigma ** 2 / 2) * T) / (sigma * np.sqrt(T)) if T > 0 and sigma > 0 else 0
+            d2_s = d1_s - sigma * np.sqrt(T) if T > 0 and sigma > 0 else 0
+            calls.append(s * norm.cdf(d1_s) - K * np.exp(-r * T) * norm.cdf(d2_s))
+            puts.append(K * np.exp(-r * T) * norm.cdf(-d2_s) - s * norm.cdf(-d1_s))
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(precios_spot, calls, color="#22d3ee", linewidth=2, label="Call")
+        ax.plot(precios_spot, puts, color="#f59e0b", linewidth=2, label="Put")
+        ax.axvline(S0, color="#10b981", linestyle="--", alpha=0.7, label=f"S₀ actual = ${S0:.2f}")
+        ax.axhline(0, color="#64748b", linestyle="-", alpha=0.5)
+        ax.set_xlabel("Precio spot del activo (S₀)")
+        ax.set_ylabel("Precio de la opción")
+        ax.set_title("Precios de opciones en función del spot")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        st.pyplot(fig)
+        plt.close(fig)
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 3. BLACK-SCHOLES - ACTIVOS CON INGRESOS DISCRETOS
+    # ──────────────────────────────────────────────────────────────────────────
+    elif tipo_opcion == "Black-Scholes - Activos con ingresos discretos":
+        st.markdown("**Determinación de precios de opciones Call y Put para activos con ingresos discretos**")
+        st.markdown("""
+        Para activos que pagan ingresos conocidos (como dividendos), se ajusta el precio spot:
+        
+        $$S_0^{\\text{ajustado}} = S_0 - D$$
+        
+        Donde:
+        - $D$ = Valor presente de los ingresos esperados durante la vida de la opción
+        
+        Luego se aplican las fórmulas de Black-Scholes con $S_0^{\\text{ajustado}}$
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            S0 = st.number_input("Precio spot del activo S₀", value=21.00, step=1.0, format="%.4f")
+            K = st.number_input("Precio de ejercicio (Strike) K", value=20.00, step=1.0, format="%.4f")
+            r = st.number_input("Tasa libre de riesgo r", value=0.10, step=0.001, format="%.4f")
+            sigma = st.number_input("Volatilidad σ", value=0.24, step=0.01, format="%.4f")
+            T = st.number_input("Tiempo hasta vencimiento T (años)", value=0.75, step=0.25, format="%.4f")
+            
+            st.subheader("Ingresos esperados")
+            D = st.number_input("Valor presente de los ingresos D", value=0.97, step=0.1, format="%.4f",
+                                help="Suma del valor presente de todos los dividendos o ingresos")
+        
+        # Ajuste del spot
+        S_ajustado = S0 - D
+        
+        # Cálculos Black-Scholes con spot ajustado
+        d1 = (np.log(S_ajustado / K) + (r + sigma ** 2 / 2) * T) / (sigma * np.sqrt(T)) if T > 0 and sigma > 0 else 0
+        d2 = d1 - sigma * np.sqrt(T) if T > 0 and sigma > 0 else 0
+        
+        N_d1 = norm.cdf(d1)
+        N_d2 = norm.cdf(d2)
+        N_menos_d1 = norm.cdf(-d1)
+        N_menos_d2 = norm.cdf(-d2)
+        
+        call = S_ajustado * N_d1 - K * np.exp(-r * T) * N_d2
+        put = K * np.exp(-r * T) * N_menos_d2 - S_ajustado * N_menos_d1
+        
+        with col2:
+            st.success(f"**Precio Call (c) = ${call:.4f}**")
+            st.success(f"**Precio Put (p) = ${put:.4f}**")
+            
+            st.caption(f"""
+            **Ajustes:**
+            - S₀ original: **${S0:.4f}**
+            - Valor presente ingresos D: **${D:.4f}**
+            - S₀ ajustado: **${S_ajustado:.4f}**
+            
+            **Parámetros calculados:**
+            - d₁ = **{d1:.4f}**  |  N(d₁) = **{N_d1:.4f}**
+            - d₂ = **{d2:.4f}**  |  N(d₂) = **{N_d2:.4f}**
+            """)
+            
+            # Comparación sin ajuste
+            d1_sin = (np.log(S0 / K) + (r + sigma ** 2 / 2) * T) / (sigma * np.sqrt(T)) if T > 0 and sigma > 0 else 0
+            d2_sin = d1_sin - sigma * np.sqrt(T)
+            call_sin = S0 * norm.cdf(d1_sin) - K * np.exp(-r * T) * norm.cdf(d2_sin)
+            
+            st.caption(f"💡 Sin considerar ingresos, Call sería: ${call_sin:.4f} (diferencia: ${call_sin - call:.4f})")
+        
+        # Gráfico comparativo
+        st.subheader("📊 Comparación: Con y sin ajuste por ingresos")
+        
+        precios_spot = np.linspace(max(1, S0 * 0.5), S0 * 1.5, 50)
+        calls_ajust = []
+        calls_sin = []
+        
+        for s in precios_spot:
+            s_ajust = s - D
+            if s_ajust > 0:
+                d1_aj = (np.log(s_ajust / K) + (r + sigma ** 2 / 2) * T) / (sigma * np.sqrt(T)) if T > 0 and sigma > 0 else 0
+                d2_aj = d1_aj - sigma * np.sqrt(T) if T > 0 and sigma > 0 else 0
+                calls_ajust.append(s_ajust * norm.cdf(d1_aj) - K * np.exp(-r * T) * norm.cdf(d2_aj))
+            else:
+                calls_ajust.append(0)
+            
+            d1_s = (np.log(s / K) + (r + sigma ** 2 / 2) * T) / (sigma * np.sqrt(T)) if T > 0 and sigma > 0 else 0
+            d2_s = d1_s - sigma * np.sqrt(T) if T > 0 and sigma > 0 else 0
+            calls_sin.append(s * norm.cdf(d1_s) - K * np.exp(-r * T) * norm.cdf(d2_s))
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(precios_spot, calls_ajust, color="#22d3ee", linewidth=2, label="Con ajuste por ingresos")
+        ax.plot(precios_spot, calls_sin, color="#f59e0b", linewidth=2, label="Sin ajuste", linestyle="--")
+        ax.axvline(S0, color="#10b981", linestyle="--", alpha=0.7, label=f"S₀ = ${S0:.2f}")
+        ax.set_xlabel("Precio spot del activo (S₀)")
+        ax.set_ylabel("Precio Call")
+        ax.set_title("Efecto de los ingresos discretos en el precio de la Call")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        st.pyplot(fig)
+        plt.close(fig)
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 4. BLACK-SCHOLES - ACTIVOS CON YIELD CONTINUO (q)
+    # ──────────────────────────────────────────────────────────────────────────
+    elif tipo_opcion == "Black-Scholes - Activos con yield continuo (q)":
+        st.markdown("**Determinación de precios de opciones Call y Put para activos con ingresos expresados en tasa**")
+        st.markdown("""
+        Para activos que proporcionan un rendimiento continuo conocido (q), como índices de dividendos:
+        
+        $$c = S_0 \\cdot e^{-qT} \\cdot N(d_1) - K \\cdot e^{-rT} \\cdot N(d_2)$$
+        
+        $$p = K \\cdot e^{-rT} \\cdot N(-d_2) - S_0 \\cdot e^{-qT} \\cdot N(-d_1)$$
+        
+        Donde:
+        $$d_1 = \\frac{\\ln(S_0/K) + (r - q + \\sigma^2/2)T}{\\sigma\\sqrt{T}}$$
+        $$d_2 = d_1 - \\sigma\\sqrt{T}$$
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            S0 = st.number_input("Precio spot del activo S₀", value=20.00, step=1.0, format="%.4f")
+            K = st.number_input("Precio de ejercicio (Strike) K", value=20.00, step=1.0, format="%.4f")
+            r = st.number_input("Tasa libre de riesgo r", value=0.1133, step=0.001, format="%.4f")
+            q = st.number_input("Tasa de yield continua q (dividend yield)", value=0.05, step=0.001, format="%.4f")
+            sigma = st.number_input("Volatilidad σ", value=0.30, step=0.01, format="%.4f")
+            T = st.number_input("Tiempo hasta vencimiento T (años)", value=0.25, step=0.25, format="%.4f")
+        
+        # Cálculos Black-Scholes con yield continuo
+        d1 = (np.log(S0 / K) + (r - q + sigma ** 2 / 2) * T) / (sigma * np.sqrt(T)) if T > 0 and sigma > 0 else 0
+        d2 = d1 - sigma * np.sqrt(T) if T > 0 and sigma > 0 else 0
+        
+        N_d1 = norm.cdf(d1)
+        N_d2 = norm.cdf(d2)
+        N_menos_d1 = norm.cdf(-d1)
+        N_menos_d2 = norm.cdf(-d2)
+        
+        call = S0 * np.exp(-q * T) * N_d1 - K * np.exp(-r * T) * N_d2
+        put = K * np.exp(-r * T) * N_menos_d2 - S0 * np.exp(-q * T) * N_menos_d1
+        
+        with col2:
+            st.success(f"**Precio Call (c) = ${call:.4f}**")
+            st.success(f"**Precio Put (p) = ${put:.4f}**")
+            
+            st.caption(f"""
+            **Parámetros calculados:**
+            - d₁ = **{d1:.4f}**  |  N(d₁) = **{N_d1:.4f}**
+            - d₂ = **{d2:.4f}**  |  N(d₂) = **{N_d2:.4f}**
+            - N(-d₁) = **{N_menos_d1:.4f}**
+            - N(-d₂) = **{N_menos_d2:.4f}**
+            """)
+            
+            # Comparación con modelo sin yield
+            d1_sin = (np.log(S0 / K) + (r + sigma ** 2 / 2) * T) / (sigma * np.sqrt(T)) if T > 0 and sigma > 0 else 0
+            d2_sin = d1_sin - sigma * np.sqrt(T)
+            call_sin = S0 * norm.cdf(d1_sin) - K * np.exp(-r * T) * norm.cdf(d2_sin)
+            
+            st.caption(f"💡 Sin yield (q=0), Call sería: ${call_sin:.4f}")
+        
+        # Gráfico de sensibilidad al yield
+        st.subheader("📈 Sensibilidad del precio Call al yield (q)")
+        
+        yields = np.linspace(0, 0.15, 30)
+        calls_q = []
+        
+        for y in yields:
+            d1_y = (np.log(S0 / K) + (r - y + sigma ** 2 / 2) * T) / (sigma * np.sqrt(T)) if T > 0 and sigma > 0 else 0
+            d2_y = d1_y - sigma * np.sqrt(T) if T > 0 and sigma > 0 else 0
+            calls_q.append(S0 * np.exp(-y * T) * norm.cdf(d1_y) - K * np.exp(-r * T) * norm.cdf(d2_y))
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(yields * 100, calls_q, color="#22d3ee", linewidth=2)
+        ax.axvline(q * 100, color="#f59e0b", linestyle="--", alpha=0.7, label=f"q actual = {q:.2%}")
+        ax.axhline(call, color="#10b981", linestyle="--", alpha=0.7, label=f"Call = ${call:.4f}")
+        ax.set_xlabel("Yield continuo q (%)")
+        ax.set_ylabel("Precio Call")
+        ax.set_title("Sensibilidad del precio Call al yield del activo")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        st.pyplot(fig)
+        plt.close(fig)
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 5. BLACK-SCHOLES - OPCIONES SOBRE DIVISAS (Garman-Kohlhagen)
+    # ──────────────────────────────────────────────────────────────────────────
+    elif tipo_opcion == "Black-Scholes - Opciones sobre divisas":
+        st.markdown("**Determinación de precios de opciones Call y Put para divisas**")
+        st.markdown("""
+        **Modelo de Garman-Kohlhagen para opciones sobre divisas:**
+        
+        $$c = S_0 \\cdot e^{-r_{ext}T} \\cdot N(d_1) - K \\cdot e^{-r_{dom}T} \\cdot N(d_2)$$
+        
+        $$p = K \\cdot e^{-r_{dom}T} \\cdot N(-d_2) - S_0 \\cdot e^{-r_{ext}T} \\cdot N(-d_1)$$
+        
+        Donde:
+        $$d_1 = \\frac{\\ln(S_0/K) + (r_{dom} - r_{ext} + \\sigma^2/2)T}{\\sigma\\sqrt{T}}$$
+        $$d_2 = d_1 - \\sigma\\sqrt{T}$$
+        
+        - $S_0$ = Tipo de cambio spot (moneda doméstica por unidad de moneda extranjera)
+        - $r_{dom}$ = Tasa de interés de la moneda doméstica
+        - $r_{ext}$ = Tasa de interés de la moneda extranjera
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            S0 = st.number_input("Tipo de cambio spot S₀", value=19.58, step=0.5, format="%.4f",
+                                 help="Moneda doméstica por unidad de moneda extranjera")
+            K = st.number_input("Precio de ejercicio (Strike) K", value=22.00, step=0.5, format="%.4f")
+            r_dom = st.number_input("Tasa interés moneda doméstica r_dom", value=0.0974, step=0.001, format="%.4f")
+            r_ext = st.number_input("Tasa interés moneda extranjera r_ext", value=0.0403, step=0.001, format="%.4f")
+            sigma = st.number_input("Volatilidad σ", value=0.1016, step=0.01, format="%.4f")
+            T = st.number_input("Tiempo hasta vencimiento T (años)", value=1.0, step=0.25, format="%.4f")
+        
+        # Cálculos Garman-Kohlhagen
+        d1 = (np.log(S0 / K) + (r_dom - r_ext + sigma ** 2 / 2) * T) / (sigma * np.sqrt(T)) if T > 0 and sigma > 0 else 0
+        d2 = d1 - sigma * np.sqrt(T) if T > 0 and sigma > 0 else 0
+        
+        N_d1 = norm.cdf(d1)
+        N_d2 = norm.cdf(d2)
+        N_menos_d1 = norm.cdf(-d1)
+        N_menos_d2 = norm.cdf(-d2)
+        
+        call = S0 * np.exp(-r_ext * T) * N_d1 - K * np.exp(-r_dom * T) * N_d2
+        put = K * np.exp(-r_dom * T) * N_menos_d2 - S0 * np.exp(-r_ext * T) * N_menos_d1
+        
+        with col2:
+            st.success(f"**Precio Call (c) = ${call:.4f}**")
+            st.success(f"**Precio Put (p) = ${put:.4f}**")
+            
+            st.caption(f"""
+            **Parámetros calculados:**
+            - d₁ = **{d1:.4f}**  |  N(d₁) = **{N_d1:.4f}**
+            - d₂ = **{d2:.4f}**  |  N(d₂) = **{N_d2:.4f}**
+            - N(-d₁) = **{N_menos_d1:.4f}**
+            - N(-d₂) = **{N_menos_d2:.4f}**
+            """)
+            
+            # Paridad Put-Call para divisas
+            st.caption(f"""
+            **Diferencial de tasas:** r_dom - r_ext = **{(r_dom - r_ext):.4%}**
+            - Forward implícito: ${S0 * np.exp((r_dom - r_ext) * T):.4f}
+            """)
+        
+        # Gráfico de precios de opciones vs tipo de cambio spot
+        st.subheader("📈 Precios de opciones vs Tipo de cambio spot")
+        
+        spots = np.linspace(max(1, S0 * 0.5), S0 * 1.5, 50)
+        calls_spot = []
+        puts_spot = []
+        
+        for s in spots:
+            d1_s = (np.log(s / K) + (r_dom - r_ext + sigma ** 2 / 2) * T) / (sigma * np.sqrt(T)) if T > 0 and sigma > 0 else 0
+            d2_s = d1_s - sigma * np.sqrt(T) if T > 0 and sigma > 0 else 0
+            calls_spot.append(s * np.exp(-r_ext * T) * norm.cdf(d1_s) - K * np.exp(-r_dom * T) * norm.cdf(d2_s))
+            puts_spot.append(K * np.exp(-r_dom * T) * norm.cdf(-d2_s) - s * np.exp(-r_ext * T) * norm.cdf(-d1_s))
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(spots, calls_spot, color="#22d3ee", linewidth=2, label="Call")
+        ax.plot(spots, puts_spot, color="#f59e0b", linewidth=2, label="Put")
+        ax.axvline(S0, color="#10b981", linestyle="--", alpha=0.7, label=f"Spot actual = {S0:.4f}")
+        ax.axvline(K, color="#ef4444", linestyle="--", alpha=0.5, label=f"Strike = {K:.4f}")
+        ax.set_xlabel("Tipo de cambio spot (moneda doméstica / extranjera)")
+        ax.set_ylabel("Precio de la opción")
+        ax.set_title("Opciones sobre divisas - Modelo Garman-Kohlhagen")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        st.pyplot(fig)
+        plt.close(fig)
+        
+        # Tabla de valores Griegos (opcional)
+        with st.expander("📊 Ver parámetros Griegos (sensibilidades)"):
+            # Delta
+            delta_call = np.exp(-r_ext * T) * N_d1
+            delta_put = -np.exp(-r_ext * T) * N_menos_d1
+            
+            st.caption(f"""
+            **Sensibilidades (Griegos):**
+            - **Delta Call:** {delta_call:.4f}  (Cambio en el precio de la Call por cambio de $1 en spot)
+            - **Delta Put:** {delta_put:.4f}   (Cambio en el precio de la Put por cambio de $1 en spot)
+            """)
 # ══════════════════════════════════════════════════════════════════════════════
 # FORWARD
 # ══════════════════════════════════════════════════════════════════════════════
