@@ -647,7 +647,7 @@ elif menu == "VP Rentas Periódicas":
         st.success(f"Tasa por subperíodo iₘ = {im:.6%}")
         st.success(f"a(nm, iₘ) = {a:.8f}")
         st.success(f"Valor Presente = {VP:,.2f}")
-        st.latex(r"VP = R 	imes a_{nm\,i_m} = R 	imes rac{1-(1+i_m)^{-nm}}{i_m}")
+        st.latex(r"VP = R \times a_{nm,i_m} = R \times \frac{1-(1+i_m)^{-nm}}{i_m}")
 
         pasos = np.arange(1, int(nm) + 1)
         vps   = [R * (1 - (1 + im)**(-t)) / im for t in pasos]
@@ -674,8 +674,8 @@ elif menu == "VP Rentas Periódicas":
         st.success(f"Tasa por subperíodo iₘ = {im:.6%}")
         st.success(f"ä(nm, iₘ) = {a*(1+im):.8f}")
         st.success(f"Valor Presente (anticipada) = {VP:,.2f}")
-        st.latex(r"VP = R 	imes rac{1-(1+i)^{-nm}}{i} 	imes (1+i)")
-
+        st.latex(r"VP = R \times \frac{1-(1+i)^{-nm}}{i} \times (1+i)")
+        
         pasos = np.arange(1, int(nm) + 1)
         vps   = [R * (1 - (1 + im)**(-t)) / im * (1 + im) for t in pasos]
         fig, ax = plt.subplots()
@@ -699,8 +699,8 @@ elif menu == "VP Rentas Periódicas":
         st.success(f"Tasa por subperíodo iₘ = {im:.6%}")
         st.success(f"a∞ = 1/iₘ = {a_perp:.4f}")
         st.success(f"Valor Presente (perpetua) = {VP:,.2f}")
-        st.latex(r"VP = R 	imes a_{\infty\,i_m} = R 	imes rac{1}{i_m}")
-
+        st.latex(r"VP = R \times a_{\infty,i_m} = R \times \frac{1}{i_m}")
+        
     # ── 4. Vencida p veces al año, tasa nominal i(m) ─────────────────────────
     elif tipo_vpr.startswith("Vencida p veces"):
         st.markdown("**VP = R × a(np, iₚ)**  — p pagos al año, tasa convertida")
@@ -724,9 +724,8 @@ elif menu == "VP Rentas Periódicas":
         st.success(f"Total períodos np = {np_:,.0f}")
         st.success(f"a(np, iₚ) = {a:.8f}")
         st.success(f"Valor Presente = {VP:,.2f}")
-        st.latex("i_p = \left(1+rac{i^{(m)}}{m} right)^{m/p}-1")
-        st.latex(r"VP = R 	imes rac{1-(1+i_p)^{-np}}{i_p}")
-
+        st.latex(r"i_p = \left(1+\frac{i^{(m)}}{m}\right)^{m/p}-1")
+        st.latex(r"VP = R \times \frac{1-(1+i_p)^{-np}}{i_p}")
         pasos = np.arange(1, int(np_) + 1)
         vps   = [R * (1 - (1 + ip)**(-t)) / ip for t in pasos]
         fig, ax = plt.subplots()
@@ -752,9 +751,9 @@ elif menu == "VP Rentas Periódicas":
         st.success(f"ā(n, δ) = {a_bar:.4f}")
         st.success(f"Valor Presente = {VP:,.2f}")
         st.latex(r"\delta = \ln(1+i)")
-        st.latex(r"ar{a}_{ar{n}|} = rac{1-V^n}{\delta}")
-        st.latex(r"VP = R 	imes ar{a}_{ar{n}|}")
-
+        st.latex(r"\bar{a}_{\bar{n}|} = \frac{1-V^n}{\delta}")
+        st.latex(r"VP = R \times \bar{a}_{\bar{n}|}")
+        
         periodos = np.linspace(0, n, 300)
         vps      = [R * (1 - (1/(1+i))**t) / delta for t in periodos]
         fig, ax  = plt.subplots()
