@@ -724,8 +724,7 @@ elif menu == "VP Rentas Periódicas":
         st.success(f"Total períodos np = {np_:,.0f}")
         st.success(f"a(np, iₚ) = {a:.8f}")
         st.success(f"Valor Presente = {VP:,.2f}")
-        st.latex(r"i_p = \left(1+rac{i^{(m)}}{m}
-ight)^{m/p}-1")
+        st.latex("i_p = \left(1+rac{i^{(m)}}{m} right)^{m/p}-1")
         st.latex(r"VP = R 	imes rac{1-(1+i_p)^{-np}}{i_p}")
 
         pasos = np.arange(1, int(np_) + 1)
