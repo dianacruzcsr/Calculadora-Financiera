@@ -616,14 +616,152 @@ elif menu == "VF Rentas Periódicas":
 # VP RENTAS
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "VP Rentas Periódicas":
-    st.header("Valor Presente de Rentas")
+    st.header("Valor Presente de Rentas Periódicas")
 
-    renta = st.number_input("Renta", value=6100.0)
-    i = st.number_input("Tasa por periodo", value=0.05, format="%.4f")
-    n = st.number_input("Número de pagos", value=5, min_value=1)
+    tipo_vpr = st.selectbox(
+        "Tipo de renta",
+        [
+            "Vencida — tasa efectiva por subperíodo iₘ",
+            "Anticipada — tasa efectiva por subperíodo iₘ",
+            "Perpetua — tasa efectiva iₘ",
+            "Vencida p veces al año — tasa nominal i(m)",
+            "Instantánea — tasa instantánea δ",
+        ],
+    )
 
-    vp = renta * ((1 - (1 + i) ** (-n)) / i)
-    st.success(f"Valor Presente = {vp:,.2f}")
+    # ── 1. Vencida, tasa efectiva por subperíodo ──────────────────────────────
+    if tipo_vpr.startswith("Vencida — tasa"):
+        st.markdown("**VP = R × a(nm, iₘ)**  — pagos al *vencer* cada subperíodo")
+        col1, _ = st.columns(2)
+        with col1:
+            R       = st.number_input("Renta R", value=6100.0, format="%.2f")
+            i_m_nom = st.number_input("Tasa nominal i(m)", value=0.05, step=0.001, format="%.4f")
+            n       = st.number_input("Años n", value=5, min_value=1, step=1)
+            m       = st.number_input("Subperíodos por año m", value=1.0, min_value=0.01, step=0.25, format="%.2f")
+
+        im  = i_m_nom / m
+        nm  = n * m
+        a   = (1 - (1 + im) ** (-nm)) / im
+        VP  = R * a
+
+        st.success(f"Tasa por subperíodo iₘ = {im:.6%}")
+        st.success(f"a(nm, iₘ) = {a:.8f}")
+        st.success(f"Valor Presente = {VP:,.2f}")
+        st.latex(r"VP = R 	imes a_{nm\,i_m} = R 	imes rac{1-(1+i_m)^{-nm}}{i_m}")
+
+        pasos = np.arange(1, int(nm) + 1)
+        vps   = [R * (1 - (1 + im)**(-t)) / im for t in pasos]
+        fig, ax = plt.subplots()
+        ax.plot(pasos, vps, color="#22d3ee")
+        ax.set_title("VP acumulado — renta vencida"); ax.set_xlabel("Subperíodo"); ax.set_ylabel("VP")
+        ax.grid(True); st.pyplot(fig); plt.close(fig)
+
+    # ── 2. Anticipada, tasa efectiva por subperíodo ───────────────────────────
+    elif tipo_vpr.startswith("Anticipada"):
+        st.markdown("**VP = R × ä(nm, i)**  — pagos al *inicio* de cada subperíodo")
+        col1, _ = st.columns(2)
+        with col1:
+            R       = st.number_input("Renta R", value=6100.0, format="%.2f")
+            i_m_nom = st.number_input("Tasa nominal i(m)", value=0.05, step=0.001, format="%.4f")
+            n       = st.number_input("Años n", value=5, min_value=1, step=1)
+            m       = st.number_input("Subperíodos por año m", value=1.0, min_value=0.01, step=0.25, format="%.2f")
+
+        im  = i_m_nom / m
+        nm  = n * m
+        a   = (1 - (1 + im) ** (-nm)) / im
+        VP  = R * a * (1 + im)          # factor anticipado
+
+        st.success(f"Tasa por subperíodo iₘ = {im:.6%}")
+        st.success(f"ä(nm, iₘ) = {a*(1+im):.8f}")
+        st.success(f"Valor Presente (anticipada) = {VP:,.2f}")
+        st.latex(r"VP = R 	imes rac{1-(1+i)^{-nm}}{i} 	imes (1+i)")
+
+        pasos = np.arange(1, int(nm) + 1)
+        vps   = [R * (1 - (1 + im)**(-t)) / im * (1 + im) for t in pasos]
+        fig, ax = plt.subplots()
+        ax.plot(pasos, vps, color="#f59e0b")
+        ax.set_title("VP acumulado — renta anticipada"); ax.set_xlabel("Subperíodo"); ax.set_ylabel("VP")
+        ax.grid(True); st.pyplot(fig); plt.close(fig)
+
+    # ── 3. Perpetua ───────────────────────────────────────────────────────────
+    elif tipo_vpr.startswith("Perpetua"):
+        st.markdown("**VP = R × (1/i)**  — renta perpetua (n → ∞)")
+        col1, _ = st.columns(2)
+        with col1:
+            R       = st.number_input("Renta R", value=4200.0, format="%.2f")
+            i_m_nom = st.number_input("Tasa nominal i(m)", value=0.05, step=0.001, format="%.4f")
+            m       = st.number_input("Subperíodos por año m", value=1.0, min_value=0.01, step=0.25, format="%.2f")
+
+        im  = i_m_nom / m
+        a_perp = 1 / im
+        VP  = R * a_perp
+
+        st.success(f"Tasa por subperíodo iₘ = {im:.6%}")
+        st.success(f"a∞ = 1/iₘ = {a_perp:.4f}")
+        st.success(f"Valor Presente (perpetua) = {VP:,.2f}")
+        st.latex(r"VP = R 	imes a_{\infty\,i_m} = R 	imes rac{1}{i_m}")
+
+    # ── 4. Vencida p veces al año, tasa nominal i(m) ─────────────────────────
+    elif tipo_vpr.startswith("Vencida p veces"):
+        st.markdown("**VP = R × a(np, iₚ)**  — p pagos al año, tasa convertida")
+        col1, _ = st.columns(2)
+        with col1:
+            R_anual = st.number_input("Renta anual total", value=4000.0, format="%.2f")
+            p       = st.number_input("Pagos por año p", value=4.0, min_value=0.01, step=1.0, format="%.2f")
+            n       = st.number_input("Años n", value=6, min_value=1, step=1)
+            i_m_nom = st.number_input("Tasa nominal i(m)", value=0.08, step=0.001, format="%.4f")
+            m       = st.number_input("Frecuencia m de la tasa nominal", value=2.0, min_value=0.01,
+                                      step=0.25, format="%.2f")
+
+        R   = R_anual / p
+        ip  = (1 + i_m_nom / m) ** (m / p) - 1
+        np_ = n * p
+        a   = (1 - (1 + ip) ** (-np_)) / ip
+        VP  = R * a
+
+        st.success(f"Renta por período R = {R:,.2f}")
+        st.success(f"Tasa por período de pago iₚ = {ip:.6%}")
+        st.success(f"Total períodos np = {np_:,.0f}")
+        st.success(f"a(np, iₚ) = {a:.8f}")
+        st.success(f"Valor Presente = {VP:,.2f}")
+        st.latex(r"i_p = \left(1+rac{i^{(m)}}{m}
+ight)^{m/p}-1")
+        st.latex(r"VP = R 	imes rac{1-(1+i_p)^{-np}}{i_p}")
+
+        pasos = np.arange(1, int(np_) + 1)
+        vps   = [R * (1 - (1 + ip)**(-t)) / ip for t in pasos]
+        fig, ax = plt.subplots()
+        ax.plot(pasos, vps, color="#22d3ee")
+        ax.set_title("VP acumulado — p pagos/año"); ax.set_xlabel("Período de pago"); ax.set_ylabel("VP")
+        ax.grid(True); st.pyplot(fig); plt.close(fig)
+
+    # ── 5. Instantánea, tasa instantánea δ ────────────────────────────────────
+    elif tipo_vpr.startswith("Instantánea"):
+        st.markdown("**VP = R × ā(n, δ)**  — capitalización continua")
+        col1, _ = st.columns(2)
+        with col1:
+            R  = st.number_input("Renta R", value=500.0, format="%.2f")
+            n  = st.number_input("Años n", value=18, min_value=1, step=1)
+            i  = st.number_input("Tasa efectiva anual i", value=0.05, step=0.001, format="%.4f")
+
+        delta = np.log(1 + i)
+        V     = 1 / (1 + i)                          # factor de descuento = e^(-δ)
+        a_bar = (1 - V ** n) / delta
+        VP    = R * a_bar
+
+        st.success(f"Tasa instantánea δ = {delta:.6%}")
+        st.success(f"ā(n, δ) = {a_bar:.4f}")
+        st.success(f"Valor Presente = {VP:,.2f}")
+        st.latex(r"\delta = \ln(1+i)")
+        st.latex(r"ar{a}_{ar{n}|} = rac{1-V^n}{\delta}")
+        st.latex(r"VP = R 	imes ar{a}_{ar{n}|}")
+
+        periodos = np.linspace(0, n, 300)
+        vps      = [R * (1 - (1/(1+i))**t) / delta for t in periodos]
+        fig, ax  = plt.subplots()
+        ax.plot(periodos, vps, color="#10b981")
+        ax.set_title("VP acumulado — renta instantánea"); ax.set_xlabel("Años"); ax.set_ylabel("VP")
+        ax.grid(True); st.pyplot(fig); plt.close(fig)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TABLAS DE AMORTIZACIÓN
