@@ -1099,9 +1099,7 @@ elif menu == "Determinación Yield":
     
     st.markdown("""
     **Determinación del yield del bono (dada la tasa cupón, cupón, VN, Valor de Mercado, T)**
-    
-    El Yield to Maturity (YTM) es la tasa de descuento que iguala el valor presente 
-    de los flujos del bono con su precio de mercado.
+
     """)
     
     col1, col2 = st.columns(2)
