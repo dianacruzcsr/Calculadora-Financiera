@@ -1515,9 +1515,7 @@ elif menu == "Acciones":
     # ──────────────────────────────────────────────────────────────────────────
     if tipo_valuacion == "Múltiplo PE (Price-Earnings)":
         st.markdown("**Valuación de acciones usando el múltiplo PE (Price-Earnings Ratio)**")
-        st.markdown("""
-        El múltiplo PE relaciona el precio de la acción con las ganancias por acción (EPS):
-        
+        st.markdown("""        
         $$P_0 = PE_{benchmark} \\times EPS_t$$
         
         Donde:
@@ -1568,49 +1566,13 @@ elif menu == "Acciones":
                 - EPS: **${EPS:.2f}**
                 - **Precio: {PE_benchmark} × ${EPS:.2f} = ${P0:,.2f}**
                 """)
-                
-                # Interpretación del múltiplo PE
-                st.info(f"💡 **Interpretación:** El mercado valora la acción en **{PE_benchmark} veces** sus ganancias por acción.")
-                
-                # Comparación con PE de mercado
-                st.subheader("📊 Análisis del múltiplo PE")
-                pe_mercado = st.number_input("PE promedio del mercado (para comparación)", value=15.0, step=0.5, format="%.2f",
-                                             help="PE promedio del sector o mercado")
-                
-                if PE_benchmark > pe_mercado:
-                    st.warning(f"⚠️ La acción tiene un PE ({PE_benchmark}x) **superior** al mercado ({pe_mercado}x) → Puede estar sobrevalorada o con expectativas de crecimiento")
-                elif PE_benchmark < pe_mercado:
-                    st.success(f"✅ La acción tiene un PE ({PE_benchmark}x) **inferior** al mercado ({pe_mercado}x) → Podría estar infravalorada")
-                else:
-                    st.info(f"ℹ️ La acción tiene un PE ({PE_benchmark}x) **igual** al mercado ({pe_mercado}x)")
-            else:
-                st.error("El EPS debe ser mayor que cero")
-        
-        # Tabla de sensibilidad del PE
-        st.subheader("📈 Tabla de sensibilidad: Precio vs PE Benchmark y EPS")
-        
-        pe_range = np.linspace(max(1, PE_benchmark * 0.5), PE_benchmark * 1.5, 5)
-        eps_range = np.linspace(max(0.1, EPS * 0.5), EPS * 1.5, 5) if EPS > 0 else [1, 2, 3, 4, 5]
-        
-        tabla_sensibilidad = []
-        for pe in pe_range:
-            fila = {"PE": f"{pe:.1f}x"}
-            for eps in eps_range:
-                precio = pe * eps
-                fila[f"EPS=${eps:.2f}"] = f"${precio:.2f}"
-            tabla_sensibilidad.append(fila)
-        
-        df_sensibilidad = pd.DataFrame(tabla_sensibilidad)
-        st.dataframe(df_sensibilidad, use_container_width=True, hide_index=True)
     
     # ──────────────────────────────────────────────────────────────────────────
     # 2. MÚLTIPLO PS (Price-Sales Ratio)
     # ──────────────────────────────────────────────────────────────────────────
     elif tipo_valuacion == "Múltiplo PS (Price-Sales)":
         st.markdown("**Valuación de acciones usando el múltiplo PS (Price-Sales Ratio)**")
-        st.markdown("""
-        El múltiplo PS relaciona el precio de la acción con las ventas por acción:
-        
+        st.markdown("""        
         $$P_0 = PS_{benchmark} \\times SalesPS_t$$
         
         O también:
@@ -1666,61 +1628,7 @@ elif menu == "Acciones":
                 - Ventas por acción (SalesPS): **${SalesPS:.2f}**
                 - **Precio: {PS_benchmark} × ${SalesPS:.2f} = ${P0:,.2f}**
                 """)
-                
-                # Interpretación
-                st.info(f"💡 **Interpretación:** El mercado valora cada dólar de ventas en **${PS_benchmark:.2f}**")
-                
-                # Relación PE implícita (si se puede estimar)
-                st.subheader("📊 Información adicional")
-                margen_neto = st.number_input("Margen neto estimado (%)", value=10.0, step=0.5, format="%.2f",
-                                              help="Margen de utilidad neta para estimar PE implícito")
-                
-                if margen_neto > 0:
-                    pe_implícito = PS_benchmark / (margen_neto / 100)
-                    st.caption(f"**PE implícito** (asumiendo margen neto del {margen_neto:.1f}%): **{pe_implícito:.1f}x**")
-            else:
-                st.error("Las ventas por acción deben ser mayores que cero")
-        
-        # Tabla de sensibilidad del PS
-        st.subheader("📈 Tabla de sensibilidad: Precio vs PS Benchmark y SalesPS")
-        
-        ps_range = np.linspace(max(0.5, PS_benchmark * 0.5), PS_benchmark * 1.5, 5)
-        salesps_range = np.linspace(max(1, SalesPS * 0.5), SalesPS * 1.5, 5) if SalesPS > 0 else [10, 15, 20, 25, 30]
-        
-        tabla_sensibilidad = []
-        for ps in ps_range:
-            fila = {"PS": f"{ps:.1f}x"}
-            for sps in salesps_range:
-                precio = ps * sps
-                fila[f"SalesPS=${sps:.2f}"] = f"${precio:.2f}"
-            tabla_sensibilidad.append(fila)
-        
-        df_sensibilidad = pd.DataFrame(tabla_sensibilidad)
-        st.dataframe(df_sensibilidad, use_container_width=True, hide_index=True)
-        
-        # Comparación con empresas del sector
-        with st.expander("📊 Comparación con múltiplos del sector"):
-            st.markdown("""
-            **Múltiplos PS típicos por sector:**
             
-            | Sector | PS típico | Interpretación |
-            |--------|-----------|----------------|
-            | Retail / Consumo | 0.5x - 1.5x | Empresas con bajo margen |
-            | Tecnología | 3x - 8x | Alto crecimiento |
-            | Software SaaS | 8x - 15x | Altos márgenes recurrentes |
-            | Biotecnología | 10x - 50x | Expectativas de crecimiento |
-            | Financiero | 2x - 4x | Regulado, márgenes estables |
-            | Industrial | 0.8x - 2x | Ciclo económico |
-            """)
-            
-            if SalesPS > 0:
-                ps_actual = PS_benchmark
-                st.metric("PS de la acción", f"{ps_actual:.2f}x")
-                if ps_actual < 2:
-                    st.caption("✅ PS bajo → Posible infravaloración o márgenes reducidos")
-                elif ps_actual > 8:
-                    st.caption("⚠️ PS alto → Expectativas de alto crecimiento o posible sobrevaloración")
-    
     # ──────────────────────────────────────────────────────────────────────────
     # 3. CRECIMIENTO CERO (dividendos constantes)
     # ──────────────────────────────────────────────────────────────────────────
