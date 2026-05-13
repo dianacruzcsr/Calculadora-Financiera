@@ -443,12 +443,44 @@ elif menu == "Tasa de rendimiento anual":
 elif menu == "Número de periodos":
     st.header("Número de periodos")
 
-    C0 = st.number_input("Valor inicial", value=50000.0)
-    Cn = st.number_input("Valor final", value=245000.0)
-    i = st.number_input("Tasa efectiva", value=0.043, format="%.4f")
+    tipo_n = st.selectbox(
+        "Tipo",
+        [
+            "Inversión de capital  —  n = ln(Cₙ/C₀) / ln(1+i)",
+            "Serie de pagos periódicos  —  VP = R × a(n,i)",
+        ],
+    )
 
-    n = np.log(Cn / C0) / np.log(1 + i)
-    st.success(f"Número de periodos = {n:.2f}")
+    # ── 1. Inversión de capital ───────────────────────────────────────────────
+    if tipo_n.startswith("Inversión"):
+        col1, _ = st.columns(2)
+        with col1:
+            C0 = st.number_input("Capital inicial C₀", value=50_000.0, format="%.2f")
+            Cn = st.number_input("Capital final Cₙ", value=245_000.0, format="%.2f")
+            i  = st.number_input("Tasa efectiva anual i", value=0.043, step=0.001, format="%.4f")
+
+        n = np.log(Cn / C0) / np.log(1 + i)
+        st.success(f"n = {n:.4f} períodos")
+        st.latex(r"n = \frac{\ln(C_n/C_0)}{\ln(1+i)}")
+
+    # ── 2. Serie de pagos periódicos (despeja n del VP de renta) ─────────────
+    elif tipo_n.startswith("Serie"):
+        col1, _ = st.columns(2)
+        with col1:
+            VP = st.number_input("Valor presente VP", value=20.34989297, format="%.8f",
+                                 help="Valor presente de la serie de pagos")
+            R  = st.number_input("Renta por período R", value=1.0, format="%.4f")
+            i  = st.number_input("Tasa por período i", value=0.035, step=0.001, format="%.4f")
+
+        # Despeje: VP/R = [1-(1+i)^-n]/i  =>  (1+i)^-n = 1 - VP*i/R  =>  n = -ln(1-VP*i/R)/ln(1+i)
+        ratio = VP * i / R
+        if ratio >= 1:
+            st.error("VP·i/R ≥ 1: no existe solución finita (la renta no alcanza a cubrir los intereses).")
+        else:
+            n = -np.log(1 - ratio) / np.log(1 + i)
+            st.success(f"n = {n:.4f} períodos")
+            st.latex(r"R \times \frac{1-(1+i)^{-n}}{i} = VP")
+            st.latex(r"n = \frac{-\ln\left(1-\frac{VP \cdot i}{R}\right)}{\ln(1+i)}")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # VF RENTAS
