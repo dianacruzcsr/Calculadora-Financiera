@@ -121,10 +121,14 @@ if menu == "Conversión de tasas":
                 help="Número de veces que se quiere capitalizar al año",
             )
 
-        # Fórmula exacta del Excel: i(p) = p * [(1 + i(m)/m)^(m/p) - 1]
-        i_p = p * ((1 + i_m / m) ** (m / p) - 1)
+        # Tasa periódica (lo que muestra el Excel en la celda amarilla)
+        tasa_periodica = (1 + i_m / m) ** (m / p) - 1
+        # Tasa nominal anual equivalente (tasa periódica × p)
+        i_p = p * tasa_periodica
 
-        st.success(f"Tasa nominal equivalente i(p): {i_p:.6%}")
+        st.success(f"Tasa periódica por subperíodo: {tasa_periodica:.6%}  ← valor que muestra el Excel")
+        st.success(f"Tasa nominal anual equivalente i(p): {i_p:.6%}")
+        st.latex(r"\text{Tasa periódica} = \left(1+\frac{i^{(m)}}{m}\right)^{m/p}-1")
         st.latex(r"i^{(p)} = p\left[\left(1+\frac{i^{(m)}}{m}\right)^{m/p}-1\right]")
 
         # Tabla de equivalencias para frecuencias estándar
@@ -254,21 +258,85 @@ if menu == "Conversión de tasas":
 elif menu == "Valor Futuro":
     st.header("Valor Futuro")
 
-    C0 = st.number_input("Capital inicial", value=20000.0)
-    i = st.number_input("Tasa efectiva", value=0.068, format="%.4f")
-    n = st.number_input("Número de periodos", value=6, min_value=1)
+    tipo_vf = st.selectbox(
+        "Tipo de capitalización",
+        [
+            "Tasa efectiva anual  —  Cₙ = C₀(1+i)ⁿ",
+            "Tasa efectiva por subperíodo  —  Cₙ = C₀(1+iₘ)ⁿᵐ",
+            "Tasa instantánea  —  Cₙ = C₀·eᵟⁿ",
+        ],
+    )
 
-    VF = C0 * (1 + i) ** n
-    st.success(f"Valor Futuro = {VF:,.2f}")
+    # ── 1. Tasa efectiva anual ────────────────────────────────────────────────
+    if tipo_vf.startswith("Tasa efectiva anual"):
+        col1, _ = st.columns(2)
+        with col1:
+            C0 = st.number_input("Capital inicial C₀", value=20_000.0, format="%.2f")
+            i  = st.number_input("Tasa efectiva anual i", value=0.068, step=0.001, format="%.4f")
+            n  = st.number_input("Número de períodos n", value=6, min_value=1, step=1)
 
-    periodos = np.arange(0, n + 1)
-    valores = C0 * (1 + i) ** periodos
+        VF = C0 * (1 + i) ** n
+        st.success(f"Cₙ = {VF:,.2f}")
+        st.latex(r"C_n = C_0 \times (1+i)^n")
 
-    fig, ax = plt.subplots()
-    ax.plot(periodos, valores, color="#22d3ee")
-    ax.set_xlabel("Periodo"); ax.set_ylabel("Valor"); ax.set_title("Crecimiento del capital")
-    ax.grid(True)
-    st.pyplot(fig); plt.close(fig)
+        periodos = np.arange(0, n + 1)
+        valores  = C0 * (1 + i) ** periodos
+        fig, ax  = plt.subplots()
+        ax.plot(periodos, valores, color="#22d3ee")
+        ax.set_xlabel("Período"); ax.set_ylabel("Valor"); ax.set_title("Crecimiento del capital")
+        ax.grid(True)
+        st.pyplot(fig); plt.close(fig)
+
+    # ── 2. Tasa efectiva por subperíodo (iₘ) ─────────────────────────────────
+    elif tipo_vf.startswith("Tasa efectiva por subperíodo"):
+        col1, _ = st.columns(2)
+        with col1:
+            C0  = st.number_input("Capital inicial C₀", value=54_000.0, format="%.2f")
+            i_m = st.number_input("Tasa nominal i(m)", value=0.1125, step=0.001, format="%.4f",
+                                  help="Tasa nominal anual capitalizable m veces")
+            n   = st.number_input("Número de años n", value=8, min_value=1, step=1)
+            m   = st.number_input("Frecuencia m (subperíodos/año)", value=13.0, min_value=0.01,
+                                  step=0.25, format="%.2f")
+
+        im   = i_m / m          # tasa efectiva por subperíodo
+        nm   = n * m             # total de subperíodos
+        VF   = C0 * (1 + im) ** nm
+
+        st.success(f"Tasa efectiva por subperíodo iₘ = {im:.6%}")
+        st.success(f"Total subperíodos nm = {nm:,.2f}")
+        st.success(f"Cₙₘ = {VF:,.2f}")
+        st.latex(r"i_m = \frac{i^{(m)}}{m}")
+        st.latex(r"C_{nm} = C_0 \times (1+i_m)^{nm}")
+
+        pasos  = np.linspace(0, nm, 300)
+        valores = C0 * (1 + im) ** pasos
+        fig, ax = plt.subplots()
+        ax.plot(pasos, valores, color="#22d3ee")
+        ax.set_xlabel("Subperíodos"); ax.set_ylabel("Valor")
+        ax.set_title("Crecimiento del capital (subperíodos)")
+        ax.grid(True)
+        st.pyplot(fig); plt.close(fig)
+
+    # ── 3. Tasa instantánea ───────────────────────────────────────────────────
+    elif tipo_vf.startswith("Tasa instantánea"):
+        col1, _ = st.columns(2)
+        with col1:
+            C0    = st.number_input("Capital inicial C₀", value=5_000.0, format="%.2f")
+            delta = st.number_input("Tasa instantánea δ", value=0.10, step=0.001, format="%.4f")
+            n     = st.number_input("Número de períodos n", value=9, min_value=1, step=1)
+
+        VF = C0 * np.exp(delta * n)
+        st.success(f"Cₙ = {VF:,.2f}")
+        st.latex(r"C_n = C_0 \times e^{\delta n}")
+
+        periodos = np.linspace(0, n, 300)
+        valores  = C0 * np.exp(delta * periodos)
+        fig, ax  = plt.subplots()
+        ax.plot(periodos, valores, color="#10b981")
+        ax.set_xlabel("Período"); ax.set_ylabel("Valor")
+        ax.set_title("Crecimiento con capitalización continua")
+        ax.grid(True)
+        st.pyplot(fig); plt.close(fig)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # VALOR PRESENTE
