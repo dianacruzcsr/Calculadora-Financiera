@@ -1095,34 +1095,214 @@ elif menu == "Rentas crecientes":
 # DETERMINACIÓN DE YIELD
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "Determinación Yield":
-    st.header("Determinación de Yield")
-
-    precio = st.number_input("Precio del bono", value=950.0)
-    VN = st.number_input("Valor nominal", value=1000.0)
-    cupon = st.number_input("Cupón anual", value=0.08, format="%.4f")
-    T = st.number_input("Años al vencimiento", value=5, min_value=1)
-    m = st.number_input("Pagos por año", value=2, min_value=1)
-
-    n = int(T * m)
-    C = VN * cupon / m
-
-    def precio_bono(y):
-        r = y / m
-        return sum(C / (1 + r) ** t for t in range(1, n + 1)) + VN / (1 + r) ** n
-
-    tasas = np.linspace(0.001, 0.30, 1000)
-    precios = [precio_bono(y) for y in tasas]
-    ytm = tasas[np.argmin(np.abs(np.array(precios) - precio))]
-
-    st.success(f"Yield aproximado = {ytm:.6%}")
-
-    fig, ax = plt.subplots()
-    ax.plot(tasas, precios, color="#22d3ee")
-    ax.axhline(precio, color="#f59e0b", linestyle="--", label=f"Precio = {precio}")
-    ax.legend(); ax.set_title("Precio del bono vs Yield")
-    ax.set_xlabel("Yield"); ax.set_ylabel("Precio"); ax.grid(True)
-    st.pyplot(fig); plt.close(fig)
-
+    st.header("Determinación del Yield del Bono")
+    
+    st.markdown("""
+    **Determinación del yield del bono (dada la tasa cupón, cupón, VN, Valor de Mercado, T)**
+    
+    El Yield to Maturity (YTM) es la tasa de descuento que iguala el valor presente de los flujos del bono con su precio de mercado:
+    
+    $$P_{mercado} = C \\times \\frac{1 - (1+r)^{-n}}{r} + VN \\times (1+r)^{-n}$$
+    
+    Donde:
+    - $r = YTM / \\text{Periodicidad}$ (tasa por período)
+    - $n = T \\times \\text{Periodicidad}$ (número total de cupones)
+    - $C = VN \\times \\text{Tasa cupón} / \\text{Periodicidad}$ (cupón periódico)
+    """)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Fechas
+        fecha_emision = st.date_input("Fecha de emisión / valoración", value=pd.to_datetime("2025-04-01"))
+        fecha_vencimiento = st.date_input("Fecha de vencimiento", value=pd.to_datetime("2040-04-01"))
+        
+        # Cálculo del tiempo en años
+        dias = (fecha_vencimiento - fecha_emision).days
+        T = dias / 365.25  # Tiempo en años
+        
+        st.caption(f"📅 Plazo: {dias} días → {T:.4f} años")
+        
+        # Parámetros del bono
+        VN = st.number_input("Valor nominal (VN)", value=1000.0, format="%.2f", help="Valor nominal del bono")
+        tasa_cupon = st.number_input("Tasa cupón anual", value=0.09, step=0.001, format="%.4f", help="Tasa de interés del cupón anual")
+        periodicidad = st.number_input("Periodicidad del cupón (pagos por año)", value=2, min_value=1, max_value=12, step=1, help="Número de cupones por año (1=anual, 2=semestral, etc.)")
+        precio_mercado = st.number_input("Precio de mercado del bono", value=1110.0, format="%.2f", help="Precio al que se transa el bono en el mercado")
+        
+        # Cupón periódico
+        cupon_anual = VN * tasa_cupon
+        cupon_periodico = cupon_anual / periodicidad
+        
+        # Número total de cupones
+        n = int(round(T * periodicidad))
+        
+        st.info(f"""
+        **Datos calculados:**
+        - Cupón anual: **${cupon_anual:,.2f}**
+        - Cupón periódico: **${cupon_periodico:,.2f}**
+        - Total períodos (n): **{n}**
+        - Precio de mercado: **${precio_mercado:,.2f}**
+        """)
+    
+    # Función para calcular el precio del bono dado un YTM
+    def precio_bono_ytm(ytm, cupon_periodico, VN, n, periodicidad):
+        r = ytm / periodicidad
+        if r == 0:
+            vp_cupones = cupon_periodico * n
+            vp_vn = VN
+        else:
+            vp_cupones = cupon_periodico * (1 - (1 + r) ** (-n)) / r
+            vp_vn = VN * (1 + r) ** (-n)
+        return vp_cupones + vp_vn
+    
+    # Función objetivo (diferencia entre precio de mercado y precio calculado)
+    def objetivo(ytm):
+        return precio_bono_ytm(ytm, cupon_periodico, VN, n, periodicidad) - precio_mercado
+    
+    # Búsqueda del YTM usando scipy (método de bisección manual si no se quiere usar scipy)
+    try:
+        from scipy.optimize import brentq
+        
+        # Buscar YTM en un rango razonable (0.01% a 50%)
+        ytm_min = 0.0001
+        ytm_max = 0.50
+        
+        # Verificar que hay cambio de signo en la función objetivo
+        f_min = objetivo(ytm_min)
+        f_max = objetivo(ytm_max)
+        
+        if f_min * f_max < 0:
+            ytm_encontrado = brentq(objetivo, ytm_min, ytm_max)
+            ytm_porcentaje = ytm_encontrado * 100
+        else:
+            # Si no hay cambio de signo, buscar manualmente
+            st.warning("No se encontró un YTM en el rango estándar. Realizando búsqueda extendida...")
+            ytm_min = 0.00001
+            ytm_max = 1.00
+            ytm_encontrado = brentq(objetivo, ytm_min, ytm_max)
+            ytm_porcentaje = ytm_encontrado * 100
+            
+    except ImportError:
+        # Si no está disponible scipy, usar búsqueda manual
+        st.info("⚠️ Usando método de búsqueda manual (scipy no disponible)")
+        
+        # Búsqueda de bisección manual
+        ytm_min = 0.0001
+        ytm_max = 0.50
+        tolerancia = 1e-8
+        max_iter = 100
+        
+        for _ in range(max_iter):
+            ytm_medio = (ytm_min + ytm_max) / 2
+            f_medio = objetivo(ytm_medio)
+            
+            if abs(f_medio) < tolerancia:
+                break
+            if objetivo(ytm_min) * f_medio < 0:
+                ytm_max = ytm_medio
+            else:
+                ytm_min = ytm_medio
+        
+        ytm_encontrado = (ytm_min + ytm_max) / 2
+        ytm_porcentaje = ytm_encontrado * 100
+    
+    # Cálculos con el YTM encontrado
+    r_periodico = ytm_encontrado / periodicidad
+    vp_cupones = cupon_periodico * (1 - (1 + r_periodico) ** (-n)) / r_periodico if r_periodico > 0 else cupon_periodico * n
+    vp_vn = VN * (1 + r_periodico) ** (-n)
+    precio_calculado = vp_cupones + vp_vn
+    
+    with col2:
+        st.subheader("Resultados")
+        
+        st.success(f"""
+        ## **Yield to Maturity (YTM) = {ytm_porcentaje:.2f}%**
+        
+        Tasa periódica (r) = **{r_periodico:.4%}**
+        """)
+        
+        # Mostrar descomposición del precio
+        st.caption(f"""
+        **Descomposición del precio con YTM encontrado:**
+        - Valor presente de los cupones: **${vp_cupones:,.2f}** (factor = {(1 - (1 + r_periodico) ** (-n)) / r_periodico:.4f})
+        - Valor presente del VN: **${vp_vn:,.2f}** (factor = {(1 + r_periodico) ** (-n):.4f})
+        - **Precio calculado: ${precio_calculado:,.2f}**
+        - Precio de mercado: **${precio_mercado:,.2f}**
+        - Diferencia: **${precio_calculado - precio_mercado:,.2f}**
+        """)
+        
+        st.latex(r"P_{mercado} = C \times \frac{1-(1+r)^{-n}}{r} + VN \times (1+r)^{-n}")
+        
+        # Comparación con valor nominal
+        if precio_mercado > VN:
+            st.success(f"✅ Bono con prima (${precio_mercado - VN:,.2f} sobre VN) → YTM ({ytm_porcentaje:.2f}%) < Tasa cupón ({tasa_cupon:.2%})")
+        elif precio_mercado < VN:
+            st.warning(f"⚠️ Bono con descuento (${VN - precio_mercado:,.2f} bajo VN) → YTM ({ytm_porcentaje:.2f}%) > Tasa cupón ({tasa_cupon:.2%})")
+        else:
+            st.info(f"ℹ️ Bono a la par → YTM ({ytm_porcentaje:.2f}%) = Tasa cupón ({tasa_cupon:.2%})")
+    
+    # Gráfico de la función objetivo (precio vs YTM)
+    st.subheader("📈 Relación Precio vs YTM")
+    
+    ytm_range = np.linspace(max(0.001, ytm_encontrado * 0.6), min(0.20, ytm_encontrado * 1.6), 100)
+    precios_range = [precio_bono_ytm(y, cupon_periodico, VN, n, periodicidad) for y in ytm_range]
+    
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Curva precio vs YTM
+    ax.plot(ytm_range * 100, precios_range, color="#22d3ee", linewidth=2.5, label="Precio del bono")
+    
+    # Punto del YTM encontrado
+    ax.scatter([ytm_porcentaje], [precio_mercado], color="#f59e0b", s=100, zorder=5, 
+               label=f"YTM = {ytm_porcentaje:.2f}% | Precio = ${precio_mercado:,.2f}", edgecolor='white')
+    
+    # Línea horizontal del precio de mercado
+    ax.axhline(precio_mercado, color="#f59e0b", linestyle="--", alpha=0.5)
+    ax.axvline(ytm_porcentaje, color="#f59e0b", linestyle="--", alpha=0.5)
+    
+    # Línea del valor nominal
+    ax.axhline(VN, color="#10b981", linestyle="--", alpha=0.5, label=f"VN = ${VN:,.2f}")
+    
+    # Tasa cupón como línea vertical
+    tasa_cupon_porcentaje = tasa_cupon * 100
+    ax.axvline(tasa_cupon_porcentaje, color="#64748b", linestyle=":", alpha=0.7, 
+               label=f"Tasa cupón = {tasa_cupon_porcentaje:.2f}%")
+    
+    ax.set_xlabel("Yield to Maturity (YTM) %")
+    ax.set_ylabel("Precio del bono")
+    ax.set_title("Determinación del Yield to Maturity")
+    ax.legend(loc="upper right")
+    ax.grid(True, alpha=0.3)
+    
+    st.pyplot(fig)
+    plt.close(fig)
+    
+    # Tabla de sensibilidad del YTM
+    st.subheader("📊 Tabla de sensibilidad: Precio vs YTM")
+    
+    # Generar tabla para diferentes YTM
+    ytm_pruebas = [ytm_encontrado * f for f in [0.50, 0.75, 0.90, 0.95, 1.00, 1.05, 1.10, 1.25, 1.50]]
+    ytm_pruebas = sorted(set(ytm_pruebas))  # Eliminar duplicados y ordenar
+    
+    tabla_sensibilidad = []
+    for y in ytm_pruebas:
+        precio = precio_bono_ytm(y, cupon_periodico, VN, n, periodicidad)
+        diferencia = precio - precio_mercado
+        tabla_sensibilidad.append({
+            "YTM": f"{y * 100:.2f}%",
+            "Precio": f"${precio:,.2f}",
+            "Diferencia vs Mercado": f"${diferencia:,.2f}",
+            "Status": "✓ Encontrado" if abs(diferencia) < 0.01 else ("Premium" if diferencia > 0 else "Discount")
+        })
+    
+    df_sensibilidad = pd.DataFrame(tabla_sensibilidad)
+    st.dataframe(df_sensibilidad, use_container_width=True, hide_index=True)
+    
+    # Validación con la función RENDTO de Excel
+    with st.expander("📖 Ver equivalencia con Excel RENDTO"):
+        st.markdown(f"""
+        **Equivalencia con la función de Excel:**
+        
 # ══════════════════════════════════════════════════════════════════════════════
 # BONOS
 # ══════════════════════════════════════════════════════════════════════════════
