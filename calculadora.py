@@ -1505,6 +1505,7 @@ elif menu == "Acciones":
             "Múltiplo PS (Price-Sales)",
             "Crecimiento cero (dividendos constantes)",
             "Crecimiento constante (Modelo Gordon)",
+            "Rendimiento requerido (Modelo Gordon despejado)",
             "Crecimiento no constante durante t períodos",
             "Crecimiento en dos etapas (g1 y g2)",
         ],
@@ -1559,13 +1560,33 @@ elif menu == "Acciones":
                 st.success(f"**Precio de la acción (P₀) = ${P0:,.2f}**")
                 st.latex(r"P_0 = PE_{benchmark} \times EPS_t")
                 
-                # Mostrar desglose
                 st.caption(f"""
                 **Desglose del cálculo:**
                 - PE Benchmark: **{PE_benchmark}x**
                 - EPS: **${EPS:.2f}**
                 - **Precio: {PE_benchmark} × ${EPS:.2f} = ${P0:,.2f}**
                 """)
+                
+                # Interpretación del múltiplo PE
+                st.info(f"💡 **Interpretación:** El mercado valora la acción en **{PE_benchmark} veces** sus ganancias por acción.")
+        
+        # Tabla de sensibilidad del PE
+        if EPS > 0:
+            st.subheader("📈 Tabla de sensibilidad: Precio vs PE Benchmark y EPS")
+            
+            pe_range = np.linspace(max(1, PE_benchmark * 0.5), PE_benchmark * 1.5, 5)
+            eps_range = np.linspace(max(0.1, EPS * 0.5), EPS * 1.5, 5)
+            
+            tabla_sensibilidad = []
+            for pe in pe_range:
+                fila = {"PE": f"{pe:.1f}x"}
+                for eps in eps_range:
+                    precio = pe * eps
+                    fila[f"EPS=${eps:.2f}"] = f"${precio:.2f}"
+                tabla_sensibilidad.append(fila)
+            
+            df_sensibilidad = pd.DataFrame(tabla_sensibilidad)
+            st.dataframe(df_sensibilidad, use_container_width=True, hide_index=True)
     
     # ──────────────────────────────────────────────────────────────────────────
     # 2. MÚLTIPLO PS (Price-Sales Ratio)
@@ -1600,7 +1621,6 @@ elif menu == "Acciones":
                 SalesPS = st.number_input("SalesPS (Ventas por acción)", value=20.77, step=0.5, format="%.2f",
                                           help="Ventas por acción (Sales Per Share)")
                 st.caption(f"SalesPS ingresado directamente: **${SalesPS:.2f}**")
-                num_shares_calc = None
             else:
                 st.subheader("Cálculo de Ventas por Acción")
                 ventas_totales = st.number_input("Ventas totales (Sales)", value=2_700_000.0, step=100_000.0, format="%.2f",
@@ -1621,14 +1641,33 @@ elif menu == "Acciones":
                 st.success(f"**Precio de la acción (P₀) = ${P0:,.2f}**")
                 st.latex(r"P_0 = PS_{benchmark} \times SalesPS_t")
                 
-                # Mostrar desglose
                 st.caption(f"""
                 **Desglose del cálculo:**
                 - PS Benchmark: **{PS_benchmark}x**
                 - Ventas por acción (SalesPS): **${SalesPS:.2f}**
                 - **Precio: {PS_benchmark} × ${SalesPS:.2f} = ${P0:,.2f}**
                 """)
+                
+                st.info(f"💡 **Interpretación:** El mercado valora cada dólar de ventas en **${PS_benchmark:.2f}**")
+        
+        # Tabla de sensibilidad del PS
+        if SalesPS > 0:
+            st.subheader("📈 Tabla de sensibilidad: Precio vs PS Benchmark y SalesPS")
             
+            ps_range = np.linspace(max(0.5, PS_benchmark * 0.5), PS_benchmark * 1.5, 5)
+            salesps_range = np.linspace(max(1, SalesPS * 0.5), SalesPS * 1.5, 5)
+            
+            tabla_sensibilidad = []
+            for ps in ps_range:
+                fila = {"PS": f"{ps:.1f}x"}
+                for sps in salesps_range:
+                    precio = ps * sps
+                    fila[f"SalesPS=${sps:.2f}"] = f"${precio:.2f}"
+                tabla_sensibilidad.append(fila)
+            
+            df_sensibilidad = pd.DataFrame(tabla_sensibilidad)
+            st.dataframe(df_sensibilidad, use_container_width=True, hide_index=True)
+    
     # ──────────────────────────────────────────────────────────────────────────
     # 3. CRECIMIENTO CERO (dividendos constantes)
     # ──────────────────────────────────────────────────────────────────────────
@@ -1689,7 +1728,105 @@ elif menu == "Acciones":
                 st.error(f"R ({R:.2%}) debe ser mayor que g ({g:.2%})")
     
     # ──────────────────────────────────────────────────────────────────────────
-    # 5. CRECIMIENTO NO CONSTANTE DURANTE t PERÍODOS
+    # 5. RENDIMIENTO REQUERIDO (Modelo Gordon despejado)
+    # ──────────────────────────────────────────────────────────────────────────
+    elif tipo_valuacion == "Rendimiento requerido (Modelo Gordon despejado)":
+        st.markdown("**Cálculo del Rendimiento Requerido (R) dado el precio actual**")
+        st.markdown("""
+        A partir del modelo de crecimiento constante de Gordon, se despeja el rendimiento requerido:
+        
+        $$R = \\frac{D_0 \\times (1+g)}{P_0} + g = \\frac{D_1}{P_0} + g$$
+        
+        Donde:
+        - $D_0$ = Dividendo actual
+        - $g$ = Tasa de crecimiento constante del dividendo
+        - $P_0$ = Precio actual de la acción
+        - $R$ = Rendimiento requerido por el inversor
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            D0 = st.number_input("Dividendo actual D₀", value=2.10, format="%.2f", help="Dividendo actual por acción")
+            g = st.number_input("Tasa de crecimiento del dividendo g", value=0.05, step=0.001, format="%.4f", 
+                                help="Tasa constante de crecimiento del dividendo")
+            P0 = st.number_input("Precio de la acción P₀", value=48.00, format="%.2f", 
+                                 help="Precio actual de mercado de la acción")
+        
+        with col2:
+            if P0 > 0:
+                D1 = D0 * (1 + g)
+                rendimiento_dividendo = D1 / P0
+                R = rendimiento_dividendo + g
+                
+                st.success(f"**Rendimiento requerido (R) = {R:.4%}**")
+                st.latex(r"R = \frac{D_0 \times (1+g)}{P_0} + g")
+                
+                st.caption(f"""
+                **Desglose del cálculo:**
+                - Dividendo actual D₀: **${D0:.2f}**
+                - Tasa de crecimiento g: **{g:.2%}**
+                - Dividendo esperado D₁ = D₀ × (1+g) = **${D1:.2f}**
+                - Rendimiento por dividendo = D₁ / P₀ = **{rendimiento_dividendo:.4%}**
+                - **Rendimiento requerido = {rendimiento_dividendo:.4%} + {g:.2%} = {R:.4%}**
+                """)
+                
+                # Mostrar componentes
+                st.info(f"""
+                **Componentes del rendimiento requerido:**
+                - 📊 Rendimiento por dividendo: **{rendimiento_dividendo:.4%}**
+                - 📈 Crecimiento esperado (g): **{g:.2%}**
+                - 🎯 **Rendimiento total requerido (R): {R:.4%}**
+                """)
+                
+                # Verificación: calcular precio a partir de R
+                P0_calculado = D1 / (R - g) if R > g else 0
+                if abs(P0_calculado - P0) < 0.01:
+                    st.success("✅ Verificación: El precio calculado con R coincide con P₀ ingresado")
+                
+                # Análisis de sensibilidad
+                st.subheader("📈 Análisis de sensibilidad")
+                
+                col_a, col_b = st.columns(2)
+                
+                with col_a:
+                    st.markdown("**R vs Precio (P₀)**")
+                    precios_test = np.linspace(P0 * 0.5, P0 * 1.5, 10)
+                    rendimientos = [(D0 * (1 + g) / p) + g for p in precios_test]
+                    
+                    fig1, ax1 = plt.subplots(figsize=(8, 4))
+                    ax1.plot(precios_test, [r * 100 for r in rendimientos], color="#22d3ee", linewidth=2)
+                    ax1.axvline(P0, color="#f59e0b", linestyle="--", label=f"P₀ = ${P0:.2f}")
+                    ax1.axhline(R * 100, color="#10b981", linestyle="--", alpha=0.7, label=f"R = {R:.2%}")
+                    ax1.set_xlabel("Precio de la acción P₀")
+                    ax1.set_ylabel("Rendimiento requerido R (%)")
+                    ax1.set_title("Sensibilidad: Rendimiento requerido vs Precio")
+                    ax1.legend()
+                    ax1.grid(True, alpha=0.3)
+                    st.pyplot(fig1)
+                    plt.close(fig1)
+                
+                with col_b:
+                    st.markdown("**R vs Crecimiento (g)**")
+                    g_test = np.linspace(max(0.001, g * 0.5), min(g * 1.5, 0.15), 10)
+                    rendimientos_g = [(D0 * (1 + g_t) / P0) + g_t for g_t in g_test]
+                    
+                    fig2, ax2 = plt.subplots(figsize=(8, 4))
+                    ax2.plot(g_test * 100, [r * 100 for r in rendimientos_g], color="#f59e0b", linewidth=2)
+                    ax2.axvline(g * 100, color="#22d3ee", linestyle="--", label=f"g = {g:.2%}")
+                    ax2.axhline(R * 100, color="#10b981", linestyle="--", alpha=0.7, label=f"R = {R:.2%}")
+                    ax2.set_xlabel("Tasa de crecimiento g (%)")
+                    ax2.set_ylabel("Rendimiento requerido R (%)")
+                    ax2.set_title("Sensibilidad: Rendimiento requerido vs Crecimiento")
+                    ax2.legend()
+                    ax2.grid(True, alpha=0.3)
+                    st.pyplot(fig2)
+                    plt.close(fig2)
+            else:
+                st.error("El precio de la acción debe ser mayor que cero")
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 6. CRECIMIENTO NO CONSTANTE DURANTE t PERÍODOS
     # ──────────────────────────────────────────────────────────────────────────
     elif tipo_valuacion == "Crecimiento no constante durante t períodos":
         st.markdown("**Valuación de acciones con dividendos que crecen a tasa no constante durante t períodos, y constante después**")
@@ -1773,7 +1910,7 @@ elif menu == "Acciones":
         plt.close(fig)
     
     # ──────────────────────────────────────────────────────────────────────────
-    # 6. CRECIMIENTO EN DOS ETAPAS (g1 y g2)
+    # 7. CRECIMIENTO EN DOS ETAPAS (g1 y g2)
     # ──────────────────────────────────────────────────────────────────────────
     elif tipo_valuacion == "Crecimiento en dos etapas (g1 y g2)":
         st.markdown("**Valuación de acciones con crecimiento en dos etapas**")
@@ -1848,6 +1985,7 @@ elif menu == "Acciones":
         
         st.pyplot(fig)
         plt.close(fig)
+        
 # ══════════════════════════════════════════════════════════════════════════════
 # OPCIONES
 # ══════════════════════════════════════════════════════════════════════════════
