@@ -1501,6 +1501,8 @@ elif menu == "Acciones":
     tipo_valuacion = st.selectbox(
         "Método de valuación",
         [
+            "Múltiplo PE (Price-Earnings)",
+            "Múltiplo PS (Price-Sales)",
             "Crecimiento cero (dividendos constantes)",
             "Crecimiento constante (Modelo Gordon)",
             "Crecimiento no constante durante t períodos",
@@ -1509,9 +1511,220 @@ elif menu == "Acciones":
     )
     
     # ──────────────────────────────────────────────────────────────────────────
-    # 1. CRECIMIENTO CERO (dividendos constantes)
+    # 1. MÚLTIPLO PE (Price-Earnings Ratio)
     # ──────────────────────────────────────────────────────────────────────────
-    if tipo_valuacion == "Crecimiento cero (dividendos constantes)":
+    if tipo_valuacion == "Múltiplo PE (Price-Earnings)":
+        st.markdown("**Valuación de acciones usando el múltiplo PE (Price-Earnings Ratio)**")
+        st.markdown("""
+        El múltiplo PE relaciona el precio de la acción con las ganancias por acción (EPS):
+        
+        $$P_0 = PE_{benchmark} \\times EPS_t$$
+        
+        Donde:
+        - $PE_{benchmark}$ = Múltiplo PE de referencia (de la industria o mercado)
+        - $EPS_t$ = Ganancias por acción (Earnings Per Share)
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            metodo_pe = st.radio(
+                "Método de ingreso de EPS",
+                ["Ingresar EPS directamente", "Calcular EPS desde Net Income"],
+                help="Seleccione cómo desea ingresar las ganancias por acción"
+            )
+            
+            PE_benchmark = st.number_input("PE Benchmark (múltiplo de referencia)", value=18.0, step=0.5, format="%.2f",
+                                           help="Múltiplo PE de la industria o mercado")
+            
+            if metodo_pe == "Ingresar EPS directamente":
+                EPS = st.number_input("EPS (Ganancias por acción)", value=2.35, step=0.01, format="%.2f",
+                                      help="Earnings Per Share - Ganancias por acción")
+                st.caption(f"EPS ingresado directamente: **${EPS:.2f}**")
+            else:
+                st.subheader("Cálculo de EPS")
+                net_income = st.number_input("Net Income (Utilidad neta)", value=10_000_000.0, step=100_000.0, format="%.2f",
+                                             help="Utilidad neta de la empresa")
+                num_shares = st.number_input("Número de acciones en circulación", value=1_000_000.0, step=100_000.0, format="%.0f",
+                                             help="Cantidad de acciones emitidas")
+                
+                if num_shares > 0:
+                    EPS = net_income / num_shares
+                    st.success(f"**EPS calculado = ${EPS:.2f}** (${net_income:,.0f} / {num_shares:,.0f})")
+                else:
+                    st.error("El número de acciones debe ser mayor que cero")
+                    EPS = 0
+        
+        with col2:
+            if EPS > 0:
+                P0 = PE_benchmark * EPS
+                st.success(f"**Precio de la acción (P₀) = ${P0:,.2f}**")
+                st.latex(r"P_0 = PE_{benchmark} \times EPS_t")
+                
+                # Mostrar desglose
+                st.caption(f"""
+                **Desglose del cálculo:**
+                - PE Benchmark: **{PE_benchmark}x**
+                - EPS: **${EPS:.2f}**
+                - **Precio: {PE_benchmark} × ${EPS:.2f} = ${P0:,.2f}**
+                """)
+                
+                # Interpretación del múltiplo PE
+                st.info(f"💡 **Interpretación:** El mercado valora la acción en **{PE_benchmark} veces** sus ganancias por acción.")
+                
+                # Comparación con PE de mercado
+                st.subheader("📊 Análisis del múltiplo PE")
+                pe_mercado = st.number_input("PE promedio del mercado (para comparación)", value=15.0, step=0.5, format="%.2f",
+                                             help="PE promedio del sector o mercado")
+                
+                if PE_benchmark > pe_mercado:
+                    st.warning(f"⚠️ La acción tiene un PE ({PE_benchmark}x) **superior** al mercado ({pe_mercado}x) → Puede estar sobrevalorada o con expectativas de crecimiento")
+                elif PE_benchmark < pe_mercado:
+                    st.success(f"✅ La acción tiene un PE ({PE_benchmark}x) **inferior** al mercado ({pe_mercado}x) → Podría estar infravalorada")
+                else:
+                    st.info(f"ℹ️ La acción tiene un PE ({PE_benchmark}x) **igual** al mercado ({pe_mercado}x)")
+            else:
+                st.error("El EPS debe ser mayor que cero")
+        
+        # Tabla de sensibilidad del PE
+        st.subheader("📈 Tabla de sensibilidad: Precio vs PE Benchmark y EPS")
+        
+        pe_range = np.linspace(max(1, PE_benchmark * 0.5), PE_benchmark * 1.5, 5)
+        eps_range = np.linspace(max(0.1, EPS * 0.5), EPS * 1.5, 5) if EPS > 0 else [1, 2, 3, 4, 5]
+        
+        tabla_sensibilidad = []
+        for pe in pe_range:
+            fila = {"PE": f"{pe:.1f}x"}
+            for eps in eps_range:
+                precio = pe * eps
+                fila[f"EPS=${eps:.2f}"] = f"${precio:.2f}"
+            tabla_sensibilidad.append(fila)
+        
+        df_sensibilidad = pd.DataFrame(tabla_sensibilidad)
+        st.dataframe(df_sensibilidad, use_container_width=True, hide_index=True)
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 2. MÚLTIPLO PS (Price-Sales Ratio)
+    # ──────────────────────────────────────────────────────────────────────────
+    elif tipo_valuacion == "Múltiplo PS (Price-Sales)":
+        st.markdown("**Valuación de acciones usando el múltiplo PS (Price-Sales Ratio)**")
+        st.markdown("""
+        El múltiplo PS relaciona el precio de la acción con las ventas por acción:
+        
+        $$P_0 = PS_{benchmark} \\times SalesPS_t$$
+        
+        O también:
+        
+        $$P_0 = \\frac{PS_{benchmark} \\times Sales}{\\text{Número de acciones}}$$
+        
+        Donde:
+        - $PS_{benchmark}$ = Múltiplo PS de referencia
+        - $SalesPS_t$ = Ventas por acción
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            metodo_ps = st.radio(
+                "Método de ingreso de ventas",
+                ["Ingresar SalesPS directamente", "Calcular desde Ventas totales"],
+                help="Seleccione cómo desea ingresar las ventas por acción"
+            )
+            
+            PS_benchmark = st.number_input("PS Benchmark (múltiplo de referencia)", value=4.3, step=0.1, format="%.2f",
+                                           help="Múltiplo PS de la industria o mercado (Price-to-Sales)")
+            
+            if metodo_ps == "Ingresar SalesPS directamente":
+                SalesPS = st.number_input("SalesPS (Ventas por acción)", value=20.77, step=0.5, format="%.2f",
+                                          help="Ventas por acción (Sales Per Share)")
+                st.caption(f"SalesPS ingresado directamente: **${SalesPS:.2f}**")
+                num_shares_calc = None
+            else:
+                st.subheader("Cálculo de Ventas por Acción")
+                ventas_totales = st.number_input("Ventas totales (Sales)", value=2_700_000.0, step=100_000.0, format="%.2f",
+                                                 help="Ventas totales de la empresa")
+                num_shares = st.number_input("Número de acciones en circulación", value=130_000.0, step=10_000.0, format="%.0f",
+                                             help="Cantidad de acciones emitidas")
+                
+                if num_shares > 0:
+                    SalesPS = ventas_totales / num_shares
+                    st.success(f"**SalesPS calculado = ${SalesPS:.2f}** (${ventas_totales:,.0f} / {num_shares:,.0f})")
+                else:
+                    st.error("El número de acciones debe ser mayor que cero")
+                    SalesPS = 0
+        
+        with col2:
+            if SalesPS > 0:
+                P0 = PS_benchmark * SalesPS
+                st.success(f"**Precio de la acción (P₀) = ${P0:,.2f}**")
+                st.latex(r"P_0 = PS_{benchmark} \times SalesPS_t")
+                
+                # Mostrar desglose
+                st.caption(f"""
+                **Desglose del cálculo:**
+                - PS Benchmark: **{PS_benchmark}x**
+                - Ventas por acción (SalesPS): **${SalesPS:.2f}**
+                - **Precio: {PS_benchmark} × ${SalesPS:.2f} = ${P0:,.2f}**
+                """)
+                
+                # Interpretación
+                st.info(f"💡 **Interpretación:** El mercado valora cada dólar de ventas en **${PS_benchmark:.2f}**")
+                
+                # Relación PE implícita (si se puede estimar)
+                st.subheader("📊 Información adicional")
+                margen_neto = st.number_input("Margen neto estimado (%)", value=10.0, step=0.5, format="%.2f",
+                                              help="Margen de utilidad neta para estimar PE implícito")
+                
+                if margen_neto > 0:
+                    pe_implícito = PS_benchmark / (margen_neto / 100)
+                    st.caption(f"**PE implícito** (asumiendo margen neto del {margen_neto:.1f}%): **{pe_implícito:.1f}x**")
+            else:
+                st.error("Las ventas por acción deben ser mayores que cero")
+        
+        # Tabla de sensibilidad del PS
+        st.subheader("📈 Tabla de sensibilidad: Precio vs PS Benchmark y SalesPS")
+        
+        ps_range = np.linspace(max(0.5, PS_benchmark * 0.5), PS_benchmark * 1.5, 5)
+        salesps_range = np.linspace(max(1, SalesPS * 0.5), SalesPS * 1.5, 5) if SalesPS > 0 else [10, 15, 20, 25, 30]
+        
+        tabla_sensibilidad = []
+        for ps in ps_range:
+            fila = {"PS": f"{ps:.1f}x"}
+            for sps in salesps_range:
+                precio = ps * sps
+                fila[f"SalesPS=${sps:.2f}"] = f"${precio:.2f}"
+            tabla_sensibilidad.append(fila)
+        
+        df_sensibilidad = pd.DataFrame(tabla_sensibilidad)
+        st.dataframe(df_sensibilidad, use_container_width=True, hide_index=True)
+        
+        # Comparación con empresas del sector
+        with st.expander("📊 Comparación con múltiplos del sector"):
+            st.markdown("""
+            **Múltiplos PS típicos por sector:**
+            
+            | Sector | PS típico | Interpretación |
+            |--------|-----------|----------------|
+            | Retail / Consumo | 0.5x - 1.5x | Empresas con bajo margen |
+            | Tecnología | 3x - 8x | Alto crecimiento |
+            | Software SaaS | 8x - 15x | Altos márgenes recurrentes |
+            | Biotecnología | 10x - 50x | Expectativas de crecimiento |
+            | Financiero | 2x - 4x | Regulado, márgenes estables |
+            | Industrial | 0.8x - 2x | Ciclo económico |
+            """)
+            
+            if SalesPS > 0:
+                ps_actual = PS_benchmark
+                st.metric("PS de la acción", f"{ps_actual:.2f}x")
+                if ps_actual < 2:
+                    st.caption("✅ PS bajo → Posible infravaloración o márgenes reducidos")
+                elif ps_actual > 8:
+                    st.caption("⚠️ PS alto → Expectativas de alto crecimiento o posible sobrevaloración")
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 3. CRECIMIENTO CERO (dividendos constantes)
+    # ──────────────────────────────────────────────────────────────────────────
+    elif tipo_valuacion == "Crecimiento cero (dividendos constantes)":
         st.markdown("**Valuación de acciones con dividendos que crecen a tasa cero**")
         st.markdown("Cuando los dividendos son constantes, el precio es: $P_0 = \\frac{D_0}{R}$")
         
@@ -1526,14 +1739,12 @@ elif menu == "Acciones":
                 P0 = D0 / R
                 st.success(f"**Precio de la acción (P₀) = ${P0:,.2f}**")
                 st.latex(r"P_0 = \frac{D_0}{R}")
-                
-                # Mostrar rendimiento del dividendo
                 st.caption(f"Rendimiento por dividendo: {D0/P0:.2%}")
             else:
                 st.error("El rendimiento requerido debe ser mayor que cero")
     
     # ──────────────────────────────────────────────────────────────────────────
-    # 2. CRECIMIENTO CONSTANTE (Modelo Gordon)
+    # 4. CRECIMIENTO CONSTANTE (Modelo Gordon)
     # ──────────────────────────────────────────────────────────────────────────
     elif tipo_valuacion == "Crecimiento constante (Modelo Gordon)":
         st.markdown("**Valuación de acciones con dividendos que crecen a tasa constante g**")
@@ -1567,14 +1778,13 @@ elif menu == "Acciones":
                 - Prima de riesgo = {R - g:.2%}
                 """)
             else:
-                st.error(f"El rendimiento requerido (R = {R:.2%}) debe ser mayor que la tasa de crecimiento (g = {g:.2%})")
+                st.error(f"R ({R:.2%}) debe ser mayor que g ({g:.2%})")
     
     # ──────────────────────────────────────────────────────────────────────────
-    # 3. CRECIMIENTO NO CONSTANTE DURANTE t PERÍODOS
+    # 5. CRECIMIENTO NO CONSTANTE DURANTE t PERÍODOS
     # ──────────────────────────────────────────────────────────────────────────
     elif tipo_valuacion == "Crecimiento no constante durante t períodos":
         st.markdown("**Valuación de acciones con dividendos que crecen a tasa no constante durante t períodos, y constante después**")
-
         
         col1, col2 = st.columns(2)
         
@@ -1586,10 +1796,7 @@ elif menu == "Acciones":
             t = st.number_input("Períodos de crecimiento no constante t", value=4, min_value=1, step=1, 
                                 help="Número de períodos con crecimiento variable")
         
-        # Ingreso de tasas de crecimiento por período
         st.subheader("📈 Tasas de crecimiento por período")
-        st.markdown("Ingrese las tasas de crecimiento para cada uno de los primeros períodos:")
-        
         cols = st.columns(min(t, 4))
         tasas_crecimiento = []
         for i in range(t):
@@ -1599,7 +1806,6 @@ elif menu == "Acciones":
                                        step=0.01, format="%.4f", key=f"tasa_{i}")
                 tasas_crecimiento.append(tasa)
         
-        # Cálculos
         dividendos = []
         Dt = D0
         
@@ -1607,31 +1813,25 @@ elif menu == "Acciones":
             Dt = Dt * (1 + tasas_crecimiento[i])
             dividendos.append(Dt)
         
-        # Valor presente de los dividendos
         vp_dividendos = 0
         for i, div in enumerate(dividendos):
             vp_dividendos += div / (1 + R) ** (i + 1)
         
-        # Precio al final del período t (usando modelo Gordon con crecimiento constante)
         Dt_1 = dividendos[-1] * (1 + g_largo)
         Pt = Dt_1 / (R - g_largo) if R > g_largo else 0
         vp_Pt = Pt / (1 + R) ** t
-        
         P0 = vp_dividendos + vp_Pt
         
         with col2:
             if R > g_largo:
                 st.success(f"**Precio actual (P₀) = ${P0:,.2f}**")
                 st.caption(f"VP de dividendos: ${vp_dividendos:,.2f} | VP de Pₜ: ${vp_Pt:,.2f}")
-                
                 st.latex(r"P_0 = \sum_{t=1}^{n} \frac{D_t}{(1+R)^t} + \frac{P_n}{(1+R)^n}")
                 st.latex(r"P_n = \frac{D_{n+1}}{R - g}")
             else:
                 st.error(f"R ({R:.2%}) debe ser mayor que g_largo ({g_largo:.2%})")
         
-        # Mostrar tabla de dividendos proyectados
         st.subheader("📊 Proyección de dividendos")
-        
         tabla_dividendos = []
         for i in range(t):
             tabla_dividendos.append({
@@ -1641,7 +1841,6 @@ elif menu == "Acciones":
                 "Tasa crecimiento": f"{tasas_crecimiento[i]:.2%}"
             })
         
-        # Agregar fila del precio terminal
         tabla_dividendos.append({
             "Período": f"t={t} (Pₜ)",
             "Dividendo Dₜ": f"${Dt_1:,.2f} (D_{t+1})",
@@ -1652,7 +1851,6 @@ elif menu == "Acciones":
         df_dividendos = pd.DataFrame(tabla_dividendos)
         st.dataframe(df_dividendos, use_container_width=True, hide_index=True)
         
-        # Gráfico de dividendos
         fig, ax = plt.subplots(figsize=(10, 5))
         periodos = list(range(1, t + 1))
         ax.bar(periodos, dividendos, color="#22d3ee", alpha=0.7, label="Dividendos proyectados")
@@ -1667,15 +1865,10 @@ elif menu == "Acciones":
         plt.close(fig)
     
     # ──────────────────────────────────────────────────────────────────────────
-    # 4. CRECIMIENTO EN DOS ETAPAS (g1 y g2)
+    # 6. CRECIMIENTO EN DOS ETAPAS (g1 y g2)
     # ──────────────────────────────────────────────────────────────────────────
     elif tipo_valuacion == "Crecimiento en dos etapas (g1 y g2)":
         st.markdown("**Valuación de acciones con crecimiento en dos etapas**")
-        st.markdown("""
-        $$P_0 = \\frac{D_0 \\times (1+g_1)}{R - g_1} \\times \\left[1 - \\left(\\frac{1+g_1}{1+R}\\right)^t\\right] + \\frac{P_t}{(1+R)^t}$$
-        
-        $$P_t = \\frac{D_0 \\times (1+g_1)^t \\times (1+g_2)}{R - g_2}$$
-        """)
         
         col1, col2 = st.columns(2)
         
@@ -1691,13 +1884,8 @@ elif menu == "Acciones":
         
         with col2:
             if R > g2:
-                # Cálculo según las fórmulas del Excel
                 D1 = D0 * (1 + g1)
-                
-                # Precio al final de la primera etapa (Pₜ)
                 Pt = (D0 * (1 + g1) ** t * (1 + g2)) / (R - g2)
-                
-                # Precio actual (P₀) - fórmula completa
                 P0 = (D1 / (R - g1)) * (1 - ((1 + g1) / (1 + R)) ** t) + Pt / (1 + R) ** t
                 
                 st.success(f"**Precio actual (P₀) = ${P0:,.2f}**")
@@ -1706,23 +1894,17 @@ elif menu == "Acciones":
                 st.latex(r"P_0 = \frac{D_0(1+g_1)}{R-g_1}\left[1-\left(\frac{1+g_1}{1+R}\right)^t\right] + \frac{P_t}{(1+R)^t}")
                 st.latex(r"P_t = \frac{D_0(1+g_1)^t(1+g_2)}{R-g_2}")
                 
-                # Mostrar detalles
                 st.caption(f"""
-                **Detalles del cálculo:**
-                - Dividendo esperado D₁ = ${D1:.2f}
-                - Primera etapa: g₁ = {g1:.2%} durante {t} períodos
-                - Segunda etapa: g₂ = {g2:.2%} (constante)
-                - Rendimiento requerido R = {R:.2%}
-                - Pₜ (precio terminal) = ${Pt:,.2f}
+                **Detalles:**
+                - D₁ = ${D1:.2f}
+                - g₁ = {g1:.2%} ({t} períodos)
+                - g₂ = {g2:.2%} (constante)
                 - VP de Pₜ = ${Pt / (1 + R) ** t:,.2f}
                 """)
             else:
-                st.error(f"El rendimiento requerido (R = {R:.2%}) debe ser mayor que g₂ ({g2:.2%})")
+                st.error(f"R ({R:.2%}) debe ser mayor que g₂ ({g2:.2%})")
         
-        # Mostrar proyección de dividendos en ambas etapas
-        st.subheader("📊 Proyección de dividendos por período")
-        
-        # Proyectar dividendos para mostrar
+        st.subheader("📊 Proyección de dividendos")
         periodos_mostrar = min(t + 5, 20)
         dividendos_proy = []
         
@@ -1733,31 +1915,24 @@ elif menu == "Acciones":
             else:
                 div = D0 * (1 + g1) ** t * (1 + g2) ** (i - t + 1)
                 etapa = "g₂"
-            dividendos_proy.append({"Período": i + 1, "Dividendo proyectado": f"${div:.2f}", "Etapa": etapa})
+            dividendos_proy.append({"Período": i + 1, "Dividendo": f"${div:.2f}", "Etapa": etapa})
         
         df_proy = pd.DataFrame(dividendos_proy)
         st.dataframe(df_proy, use_container_width=True, hide_index=True)
         
-        # Gráfico de dividendos proyectados
         fig, ax = plt.subplots(figsize=(12, 5))
-        
         periodos = list(range(1, periodos_mostrar + 1))
-        dividendos_valores = [float(d["Dividendo proyectado"].replace("$", "")) for d in dividendos_proy]
-        
-        # Colores según etapa
+        dividendos_valores = [float(d["Dividendo"].replace("$", "")) for d in dividendos_proy]
         colores = ["#22d3ee"] * t + ["#f59e0b"] * (periodos_mostrar - t)
         
         ax.bar(periodos, dividendos_valores, color=colores, alpha=0.7)
-        ax.axvline(x=t + 0.5, color="#10b981", linestyle="--", linewidth=2, 
-                   label=f"Fin de etapa g₁ (t={t})")
-        
+        ax.axvline(x=t + 0.5, color="#10b981", linestyle="--", linewidth=2, label=f"Fin g₁ (t={t})")
         ax.set_xlabel("Período")
         ax.set_ylabel("Dividendo")
-        ax.set_title("Proyección de dividendos - Dos etapas de crecimiento")
+        ax.set_title("Proyección de dividendos - Dos etapas")
         ax.legend()
         ax.grid(True, alpha=0.3)
         
-        # Agregar anotaciones
         ax.annotate(f"g₁ = {g1:.2%}", xy=(t/2, max(dividendos_valores) * 0.8), 
                     ha="center", color="#22d3ee", fontsize=10)
         ax.annotate(f"g₂ = {g2:.2%}", xy=(t + (periodos_mostrar - t)/2, max(dividendos_valores) * 0.6), 
@@ -1765,60 +1940,6 @@ elif menu == "Acciones":
         
         st.pyplot(fig)
         plt.close(fig)
-        
-        # Análisis de sensibilidad
-        with st.expander("📈 Análisis de sensibilidad (P₀ vs R y g₂)"):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("**Precio vs Rendimiento requerido (R)**")
-                R_range = np.linspace(max(R * 0.8, g2 + 0.01), R * 1.2, 20)
-                precios_R = []
-                
-                for r_test in R_range:
-                    if r_test > g2:
-                        Pt_test = (D0 * (1 + g1) ** t * (1 + g2)) / (r_test - g2)
-                        P0_test = (D1 / (r_test - g1)) * (1 - ((1 + g1) / (1 + r_test)) ** t) + Pt_test / (1 + r_test) ** t
-                        precios_R.append(P0_test)
-                    else:
-                        precios_R.append(np.nan)
-                
-                fig1, ax1 = plt.subplots(figsize=(8, 4))
-                ax1.plot(R_range * 100, precios_R, color="#22d3ee", linewidth=2)
-                ax1.axvline(R * 100, color="#f59e0b", linestyle="--", label=f"R actual = {R:.2%}")
-                ax1.axhline(P0, color="#10b981", linestyle="--", alpha=0.7, label=f"P₀ = ${P0:.2f}")
-                ax1.set_xlabel("Rendimiento requerido R (%)")
-                ax1.set_ylabel("Precio P₀")
-                ax1.set_title("Sensibilidad del precio al rendimiento requerido")
-                ax1.legend()
-                ax1.grid(True, alpha=0.3)
-                st.pyplot(fig1)
-                plt.close(fig1)
-            
-            with col2:
-                st.markdown("**Precio vs Crecimiento g₂**")
-                g2_range = np.linspace(max(0.001, g2 * 0.5), min(g2 * 1.5, R - 0.01), 20)
-                precios_g2 = []
-                
-                for g2_test in g2_range:
-                    if R > g2_test:
-                        Pt_test = (D0 * (1 + g1) ** t * (1 + g2_test)) / (R - g2_test)
-                        P0_test = (D1 / (R - g1)) * (1 - ((1 + g1) / (1 + R)) ** t) + Pt_test / (1 + R) ** t
-                        precios_g2.append(P0_test)
-                    else:
-                        precios_g2.append(np.nan)
-                
-                fig2, ax2 = plt.subplots(figsize=(8, 4))
-                ax2.plot(g2_range * 100, precios_g2, color="#f59e0b", linewidth=2)
-                ax2.axvline(g2 * 100, color="#22d3ee", linestyle="--", label=f"g₂ actual = {g2:.2%}")
-                ax2.axhline(P0, color="#10b981", linestyle="--", alpha=0.7, label=f"P₀ = ${P0:.2f}")
-                ax2.set_xlabel("Crecimiento segunda etapa g₂ (%)")
-                ax2.set_ylabel("Precio P₀")
-                ax2.set_title("Sensibilidad del precio al crecimiento g₂")
-                ax2.legend()
-                ax2.grid(True, alpha=0.3)
-                st.pyplot(fig2)
-                plt.close(fig2)
 # ══════════════════════════════════════════════════════════════════════════════
 # OPCIONES
 # ══════════════════════════════════════════════════════════════════════════════
