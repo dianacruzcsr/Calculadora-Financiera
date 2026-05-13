@@ -1574,13 +1574,7 @@ elif menu == "Acciones":
     # ──────────────────────────────────────────────────────────────────────────
     elif tipo_valuacion == "Crecimiento no constante durante t períodos":
         st.markdown("**Valuación de acciones con dividendos que crecen a tasa no constante durante t períodos, y constante después**")
-        st.markdown("""
-        **Metodología:**
-        1. Proyectar dividendos individualmente durante el período de crecimiento no constante
-        2. Calcular el valor presente de estos dividendos
-        3. Calcular el precio al final del período de crecimiento (Pₜ) usando modelo Gordon
-        4. Traer Pₜ a valor presente y sumar
-        """)
+
         
         col1, col2 = st.columns(2)
         
@@ -1678,10 +1672,6 @@ elif menu == "Acciones":
     elif tipo_valuacion == "Crecimiento en dos etapas (g1 y g2)":
         st.markdown("**Valuación de acciones con crecimiento en dos etapas**")
         st.markdown("""
-        **Metodología:**
-        - Primera etapa (t períodos): crecimiento a tasa g₁
-        - Segunda etapa (a partir de t+1): crecimiento a tasa g₂ constante
-        
         $$P_0 = \\frac{D_0 \\times (1+g_1)}{R - g_1} \\times \\left[1 - \\left(\\frac{1+g_1}{1+R}\\right)^t\\right] + \\frac{P_t}{(1+R)^t}$$
         
         $$P_t = \\frac{D_0 \\times (1+g_1)^t \\times (1+g_2)}{R - g_2}$$
