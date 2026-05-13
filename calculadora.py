@@ -1567,9 +1567,7 @@ elif menu == "Acciones":
                 - **Precio: {PE_benchmark} × ${EPS:.2f} = ${P0:,.2f}**
                 """)
                 
-                # Interpretación del múltiplo PE
-                st.info(f"💡 **Interpretación:** El mercado valora la acción en **{PE_benchmark} veces** sus ganancias por acción.")
-        
+                    
         # Tabla de sensibilidad del PE
         if EPS > 0:
             st.subheader("📈 Tabla de sensibilidad: Precio vs PE Benchmark y EPS")
@@ -1647,9 +1645,7 @@ elif menu == "Acciones":
                 - Ventas por acción (SalesPS): **${SalesPS:.2f}**
                 - **Precio: {PS_benchmark} × ${SalesPS:.2f} = ${P0:,.2f}**
                 """)
-                
-                st.info(f"💡 **Interpretación:** El mercado valora cada dólar de ventas en **${PS_benchmark:.2f}**")
-        
+                    
         # Tabla de sensibilidad del PS
         if SalesPS > 0:
             st.subheader("📈 Tabla de sensibilidad: Precio vs PS Benchmark y SalesPS")
@@ -1733,7 +1729,6 @@ elif menu == "Acciones":
     elif tipo_valuacion == "Rendimiento requerido (Modelo Gordon despejado)":
         st.markdown("**Cálculo del Rendimiento Requerido (R) dado el precio actual**")
         st.markdown("""
-        A partir del modelo de crecimiento constante de Gordon, se despeja el rendimiento requerido:
         
         $$R = \\frac{D_0 \\times (1+g)}{P_0} + g = \\frac{D_1}{P_0} + g$$
         
@@ -1771,59 +1766,6 @@ elif menu == "Acciones":
                 - **Rendimiento requerido = {rendimiento_dividendo:.4%} + {g:.2%} = {R:.4%}**
                 """)
                 
-                # Mostrar componentes
-                st.info(f"""
-                **Componentes del rendimiento requerido:**
-                - 📊 Rendimiento por dividendo: **{rendimiento_dividendo:.4%}**
-                - 📈 Crecimiento esperado (g): **{g:.2%}**
-                - 🎯 **Rendimiento total requerido (R): {R:.4%}**
-                """)
-                
-                # Verificación: calcular precio a partir de R
-                P0_calculado = D1 / (R - g) if R > g else 0
-                if abs(P0_calculado - P0) < 0.01:
-                    st.success("✅ Verificación: El precio calculado con R coincide con P₀ ingresado")
-                
-                # Análisis de sensibilidad
-                st.subheader("📈 Análisis de sensibilidad")
-                
-                col_a, col_b = st.columns(2)
-                
-                with col_a:
-                    st.markdown("**R vs Precio (P₀)**")
-                    precios_test = np.linspace(P0 * 0.5, P0 * 1.5, 10)
-                    rendimientos = [(D0 * (1 + g) / p) + g for p in precios_test]
-                    
-                    fig1, ax1 = plt.subplots(figsize=(8, 4))
-                    ax1.plot(precios_test, [r * 100 for r in rendimientos], color="#22d3ee", linewidth=2)
-                    ax1.axvline(P0, color="#f59e0b", linestyle="--", label=f"P₀ = ${P0:.2f}")
-                    ax1.axhline(R * 100, color="#10b981", linestyle="--", alpha=0.7, label=f"R = {R:.2%}")
-                    ax1.set_xlabel("Precio de la acción P₀")
-                    ax1.set_ylabel("Rendimiento requerido R (%)")
-                    ax1.set_title("Sensibilidad: Rendimiento requerido vs Precio")
-                    ax1.legend()
-                    ax1.grid(True, alpha=0.3)
-                    st.pyplot(fig1)
-                    plt.close(fig1)
-                
-                with col_b:
-                    st.markdown("**R vs Crecimiento (g)**")
-                    g_test = np.linspace(max(0.001, g * 0.5), min(g * 1.5, 0.15), 10)
-                    rendimientos_g = [(D0 * (1 + g_t) / P0) + g_t for g_t in g_test]
-                    
-                    fig2, ax2 = plt.subplots(figsize=(8, 4))
-                    ax2.plot(g_test * 100, [r * 100 for r in rendimientos_g], color="#f59e0b", linewidth=2)
-                    ax2.axvline(g * 100, color="#22d3ee", linestyle="--", label=f"g = {g:.2%}")
-                    ax2.axhline(R * 100, color="#10b981", linestyle="--", alpha=0.7, label=f"R = {R:.2%}")
-                    ax2.set_xlabel("Tasa de crecimiento g (%)")
-                    ax2.set_ylabel("Rendimiento requerido R (%)")
-                    ax2.set_title("Sensibilidad: Rendimiento requerido vs Crecimiento")
-                    ax2.legend()
-                    ax2.grid(True, alpha=0.3)
-                    st.pyplot(fig2)
-                    plt.close(fig2)
-            else:
-                st.error("El precio de la acción debe ser mayor que cero")
     
     # ──────────────────────────────────────────────────────────────────────────
     # 6. CRECIMIENTO NO CONSTANTE DURANTE t PERÍODOS
