@@ -1128,20 +1128,258 @@ elif menu == "Determinación Yield":
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "Bonos":
     st.header("Valuación de Bonos")
-
-    VN = st.number_input("Valor nominal", value=1000.0)
-    cupon = st.number_input("Tasa cupón", value=0.08, format="%.4f")
-    ytm = st.number_input("Yield to maturity", value=0.04, format="%.4f")
-    T = st.number_input("Años al vencimiento", value=10, min_value=1)
-    m = st.number_input("Pagos por año", value=1, min_value=1)
-
-    C = VN * cupon / m
-    n = int(T * m)
-    r = ytm / m
-    precio = sum(C / (1 + r) ** t for t in range(1, n + 1)) + VN / (1 + r) ** n
-
-    st.success(f"Precio del bono = {precio:,.2f}")
-
+    
+    st.markdown("""
+    **Valuación de bonos (dada la tasa cupón, cupón, yield, VN, T)**
+    
+    El precio de un bono es el valor presente de sus cupones más el valor presente del valor nominal:
+    
+    $$B = C \\times \\frac{1 - (1+r)^{-n}}{r} + VN \\times (1+r)^{-n}$$
+    
+    Donde:
+    - $C$ = Cupón periódico = $VN \\times \\text{Tasa cupón} / \\text{Periodicidad}$
+    - $r$ = Tasa de interés por período = $YTM / \\text{Periodicidad}$
+    - $n$ = Número total de cupones = $T \\times \\text{Periodicidad}$
+    """)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Fechas
+        fecha_emision = st.date_input("Fecha de emisión / valoración", value=pd.to_datetime("2020-06-08"))
+        fecha_vencimiento = st.date_input("Fecha de vencimiento", value=pd.to_datetime("2029-06-08"))
+        
+        # Cálculo del tiempo en años
+        dias = (fecha_vencimiento - fecha_emision).days
+        T = dias / 365.25  # Tiempo en años (considerando años bisiestos)
+        
+        st.caption(f"📅 Plazo: {dias} días → {T:.4f} años")
+        
+        # Parámetros del bono
+        VN = st.number_input("Valor nominal (VN)", value=1000.0, format="%.2f", help="Valor nominal del bono")
+        tasa_cupon = st.number_input("Tasa cupón anual", value=0.08, step=0.001, format="%.4f", help="Tasa de interés del cupón anual")
+        ytm = st.number_input("Yield to maturity (YTM)", value=0.04, step=0.001, format="%.4f", help="Rendimiento al vencimiento anual")
+        periodicidad = st.number_input("Periodicidad del cupón (pagos por año)", value=1, min_value=1, max_value=12, step=1, help="Número de cupones por año (1=anual, 2=semestral, etc.)")
+        
+        # Cupón periódico
+        cupon_anual = VN * tasa_cupon
+        cupon_periodico = cupon_anual / periodicidad
+        
+        # Número total de cupones
+        n = int(round(T * periodicidad))
+        
+        # Tasa por período
+        r = ytm / periodicidad
+        
+        st.info(f"""
+        **Datos calculados:**
+        - Cupón anual: **${cupon_anual:,.2f}**
+        - Cupón periódico: **${cupon_periodico:,.2f}**
+        - Total períodos (n): **{n}**
+        - Tasa por período (r): **{r:.4%}**
+        """)
+    
+    with col2:
+        st.subheader("Resultados")
+        
+        if n > 0 and r >= 0:
+            # Factor de valor presente de los cupones
+            if r == 0:
+                factor_cupones = n
+                vp_cupones = cupon_periodico * n
+            else:
+                factor_cupones = (1 - (1 + r) ** (-n)) / r
+                vp_cupones = cupon_periodico * factor_cupones
+            
+            # Factor de valor presente del valor nominal
+            factor_vn = (1 + r) ** (-n)
+            vp_vn = VN * factor_vn
+            
+            # Precio del bono
+            precio_bono = vp_cupones + vp_vn
+            
+            st.success(f"**Precio del bono = {precio_bono:,.2f}**")
+            
+            # Mostrar factores
+            st.caption(f"""
+            - Factor VP cupones: **{factor_cupones:.4f}**
+            - Factor VP VN: **{factor_vn:.4f}**
+            """)
+            
+            st.latex(r"B = C \times \frac{1-(1+r)^{-n}}{r} + VN \times (1+r)^{-n}")
+            
+            # Comparación con valor nominal
+            if precio_bono > VN:
+                st.success(f"✅ Bono con prima (${precio_bono - VN:,.2f} sobre VN)")
+            elif precio_bono < VN:
+                st.warning(f"⚠️ Bono con descuento (${VN - precio_bono:,.2f} bajo VN)")
+            else:
+                st.info("ℹ️ Bono a la par (igual al valor nominal)")
+    
+    # Gráfico de flujos
+    if n > 0 and n <= 100:
+        st.subheader("📊 Diagrama de flujos del bono")
+        
+        # Crear flujos
+        periodos = np.arange(0, n + 1)
+        flujos = [0] * (n + 1)
+        
+        # Cupones
+        for i in range(1, n + 1):
+            flujos[i] = cupon_periodico
+        
+        # Valor nominal al vencimiento
+        flujos[n] += VN
+        
+        fig, ax = plt.subplots(figsize=(12, 5))
+        
+        # Barras de flujos
+        colores = ['#22d3ee' if i < n else '#f59e0b' for i in range(n + 1)]
+        ax.bar(periodos, flujos, color=colores, alpha=0.7, edgecolor='white')
+        
+        # Línea del valor presente acumulado
+        vp_acumulado = [0]
+        for i in range(1, n + 1):
+            vp_acumulado.append(vp_acumulado[-1] + flujos[i] * (1 + r) ** (-i))
+        
+        ax2 = ax.twinx()
+        ax2.plot(periodos, vp_acumulado, color="#10b981", linewidth=2, marker='o', markersize=4, label="VP acumulado")
+        ax2.set_ylabel("Valor presente acumulado", color="#10b981")
+        ax2.tick_params(axis='y', labelcolor="#10b981")
+        
+        # Línea horizontal del precio del bono
+        ax2.axhline(precio_bono, color="#f59e0b", linestyle="--", alpha=0.7, label=f"Precio bono = {precio_bono:,.2f}")
+        
+        ax.set_xlabel("Período (número de cupón)")
+        ax.set_ylabel("Flujo de efectivo", color="#22d3ee")
+        ax.tick_params(axis='y', labelcolor="#22d3ee")
+        ax.set_title("Flujos de efectivo del bono y valor presente acumulado")
+        ax.grid(True, alpha=0.3)
+        
+        # Leyendas combinadas
+        lines1, labels1 = ax.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax.legend(lines1 + lines2, labels1 + labels2, loc="upper left")
+        
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+        
+        # Mostrar detalles de los flujos
+        with st.expander("📋 Ver detalles de todos los flujos"):
+            df_flujos = pd.DataFrame({
+                "Período": range(1, n + 1),
+                "Cupón": [f"{cupon_periodico:,.2f}"] * n,
+                "Valor presente del cupón": [f"{cupon_periodico * (1 + r) ** (-i):,.2f}" for i in range(1, n + 1)]
+            })
+            
+            # Agregar fila del valor nominal
+            df_vn = pd.DataFrame({
+                "Período": ["VN al vencimiento"],
+                "Cupón": [f"{VN:,.2f}"],
+                "Valor presente del cupón": [f"{VN * (1 + r) ** (-n):,.2f}"]
+            })
+            
+            df_completo = pd.concat([df_flujos, df_vn], ignore_index=True)
+            st.dataframe(df_completo, use_container_width=True, hide_index=True)
+    
+    # Análisis de sensibilidad
+    st.subheader("📈 Análisis de sensibilidad")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Precio vs YTM**")
+        ytm_range = np.linspace(max(0.001, ytm * 0.5), min(0.20, ytm * 2), 20)
+        precios_ytm = []
+        
+        for y in ytm_range:
+            r_y = y / periodicidad
+            if r_y == 0:
+                vp_c_y = cupon_periodico * n
+            else:
+                vp_c_y = cupon_periodico * (1 - (1 + r_y) ** (-n)) / r_y
+            vp_vn_y = VN * (1 + r_y) ** (-n)
+            precios_ytm.append(vp_c_y + vp_vn_y)
+        
+        fig1, ax1 = plt.subplots(figsize=(8, 5))
+        ax1.plot(ytm_range * 100, precios_ytm, color="#22d3ee", linewidth=2)
+        ax1.axvline(ytm * 100, color="#f59e0b", linestyle="--", alpha=0.7, label=f"YTM actual = {ytm:.2%}")
+        ax1.axhline(precio_bono, color="#10b981", linestyle="--", alpha=0.7, label=f"Precio = {precio_bono:.2f}")
+        ax1.set_xlabel("Yield to Maturity (YTM) %")
+        ax1.set_ylabel("Precio del bono")
+        ax1.set_title("Relación Precio vs YTM")
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        st.pyplot(fig1)
+        plt.close(fig1)
+    
+    with col2:
+        st.markdown("**Precio vs Tiempo**")
+        # Para un bono con cupón fijo, el precio converge al VN al vencimiento
+        tiempo_range = np.linspace(0, T, 20)
+        precios_tiempo = []
+        
+        for t in tiempo_range:
+            n_t = max(1, int(round(t * periodicidad)))
+            if n_t > 0 and r > 0:
+                # Precio con tiempo restante t
+                factor_c_t = (1 - (1 + r) ** (-n_t)) / r if r > 0 else n_t
+                vp_c_t = cupon_periodico * factor_c_t
+                vp_vn_t = VN * (1 + r) ** (-n_t)
+                precio_t = vp_c_t + vp_vn_t
+            else:
+                precio_t = VN
+            precios_tiempo.append(precio_t)
+        
+        fig2, ax2 = plt.subplots(figsize=(8, 5))
+        ax2.plot(tiempo_range, precios_tiempo, color="#f59e0b", linewidth=2)
+        ax2.axhline(VN, color="#64748b", linestyle="--", alpha=0.5, label=f"VN = {VN:.2f}")
+        ax2.set_xlabel("Tiempo restante (años)")
+        ax2.set_ylabel("Precio del bono")
+        ax2.set_title("Convergencia del precio al valor nominal")
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+        st.pyplot(fig2)
+        plt.close(fig2)
+    
+    # Duración (Macaulay Duration)
+    st.subheader("⏱️ Duración (Macaulay Duration)")
+    
+    if precio_bono > 0:
+        # Calcular duración
+        duracion = 0
+        for t in range(1, n + 1):
+            vp_flujo = cupon_periodico * (1 + r) ** (-t)
+            duracion += t * vp_flujo / precio_bono
+        
+        # Agregar el valor nominal
+        vp_vn = VN * (1 + r) ** (-n)
+        duracion += n * vp_vn / precio_bono
+        
+        # Duración en años
+        duracion_anios = duracion / periodicidad
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Duración (períodos)", f"{duracion:.2f}")
+        with col2:
+            st.metric("Duración (años)", f"{duracion_anios:.2f}")
+        with col3:
+            # Duración modificada = Duración / (1 + r)
+            duracion_mod = duracion / (1 + r)
+            st.metric("Duración modificada", f"{duracion_mod:.2f}")
+        
+        st.caption("""
+        **Interpretación:** La duración de Macaulay es el tiempo promedio ponderado para recibir los flujos de efectivo del bono.
+        La duración modificada estima el cambio porcentual en el precio ante un cambio del 1% en el YTM.
+        """)
+        
+        st.info(f"""
+        💡 **Sensibilidad estimada:** 
+        - Un aumento del YTM en 1% → disminución del precio aprox. **{duracion_mod:.2f}%**
+        - Una disminución del YTM en 1% → aumento del precio aprox. **{duracion_mod:.2f}%**
+        """)
 # ══════════════════════════════════════════════════════════════════════════════
 # RENDIMIENTO REQUERIDO DE ACCIONES
 # ══════════════════════════════════════════════════════════════════════════════
