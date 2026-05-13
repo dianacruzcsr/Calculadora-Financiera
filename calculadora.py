@@ -1,13 +1,14 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import numpy_financial as npf
 from scipy.stats import norm
 
-st.set_page_config(page_title="Calculadora Financiera", layout="wide")
-st.title("📊 Calculadora de Matemáticas Financieras")
-st.markdown("Basada en el modelo de Excel proporcionado")
+st.set_page_config(page_title="Calculadora de Matemáticas Financieras", layout="wide")
+
+st.title("📈 Calculadora de Matemáticas Financieras")
+st.markdown("Aplicación basada en las fórmulas del archivo de Excel.")
 
 menu = st.sidebar.selectbox(
     "Selecciona una sección",
@@ -17,178 +18,338 @@ menu = st.sidebar.selectbox(
         "Valor Presente",
         "Tasa de rendimiento anual",
         "Número de periodos",
-        "VF Rentas periódicas constantes",
-        "VP Rentas periódicas constantes",
-        "Tabla de amortización",
-        "VF Renta creciente geométrica",
-        "VP Renta creciente geométrica",
-        "Valuación de Bonos",
-        "Yield to Maturity (YTM)",
-        "Valuación de acciones (Dividendos)",
-        "Valuación por múltiplos",
-        "Rendimiento requerido",
-        "Precios Forward",
-        "Opciones (Black-Scholes)",
-        "Reinversión de intereses (Gráfica)",
+        "VF Rentas Periódicas",
+        "VP Rentas Periódicas",
+        "Tablas de amortización",
+        "Rentas crecientes",
+        "Bonos",
+        "Acciones",
+        "Forward",
+        "Opciones Black-Scholes"
     ]
 )
 
-st.markdown("---")
+# ==============================
+# CONVERSIÓN DE TASAS
+# ==============================
+if menu == "Conversión de tasas":
+    st.header("Conversión de tasas")
 
-# ============================================================
-# REINVERSIÓN DE INTERESES CON GRÁFICA
-# ============================================================
-if menu == "Reinversión de intereses (Gráfica)":
-    st.header("Ilustración de la reinversión de los intereses")
-    st.markdown("Comparación de montos acumulados según frecuencia de capitalización")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        i = st.number_input("i (tasa efectiva anual)", value=0.10, step=0.01, format="%.4f")
-    with col2:
-        C0 = st.number_input("C0 (capital inicial)", value=100000.0, step=10000.0)
-    with col3:
-        n = st.number_input("n (años)", value=10, step=1)
-    
-    st.markdown("---")
-    
-    # Definir frecuencias según el Excel
-    frecuencias = [
-        ("Cada 4 años", 1/4),
-        ("Cada 2 años", 1/2),
-        ("Anual", 1),
-        ("Semestral", 2),
-        ("Trimestral", 4),
-        ("Mensual", 12),
-        ("Semanal", 52),
-        ("Diaria", 365),
-        ("Cada hora", 8760),
-        ("Cada minuto", 525600),
-        ("Cada segundo", 31536000),
-        ("Instantánea", float('inf'))
-    ]
-    
-    resultados = []
-    
-    st.subheader("📈 Monto acumulado según frecuencia")
-    
-    col_left, col_right = st.columns([1, 1])
-    
-    with col_left:
-        for nombre, m in frecuencias:
-            if m == float('inf'):
-                # Fórmula para capitalización continua
-                monto = C0 * np.exp(i * n)
-            else:
-                # Fórmula correcta según Excel
-                if m < 1:
-                    # Para periodos mayores a 1 año (cada 4 años, cada 2 años)
-                    monto = C0 * (1 + i * m) ** (n / m)
-                else:
-                    # Para periodos menores o iguales a 1 año
-                    monto = C0 * (1 + i / m) ** (m * n)
-            
-            resultados.append({
-                "Frecuencia": nombre,
-                "m (veces al año)": m if m != float('inf') else "∞",
-                "Monto acumulado": monto
-            })
-            
-            # Mostrar en formato de métrica
-            st.metric(nombre, f"${monto:,.2f}")
-    
-    with col_right:
-        # Crear DataFrame para la gráfica
-        df = pd.DataFrame(resultados)
-        
-        # Gráfica de barras
-        fig = go.Figure()
-        
-        # Solo mostrar las primeras 8 frecuencias para mejor visualización
-        df_plot = df.head(8).copy()
-        
-        fig.add_trace(go.Bar(
-            x=df_plot["Frecuencia"],
-            y=df_plot["Monto acumulado"],
-            text=df_plot["Monto acumulado"].apply(lambda x: f"${x:,.0f}"),
-            textposition='outside',
-            marker_color='lightblue',
-            name='Monto'
-        ))
-        
-        # Línea horizontal del valor teórico (capitalización continua)
-        monto_continuo = resultados[-1]["Monto acumulado"]
-        fig.add_hline(y=monto_continuo, line_dash="dash", line_color="red",
-                      annotation_text=f"Límite continuo: ${monto_continuo:,.0f}")
-        
-        fig.update_layout(
-            title="Monto acumulado por frecuencia de capitalización",
-            xaxis_title="Frecuencia de reinversión",
-            yaxis_title="Monto acumulado ($)",
-            yaxis_tickformat="$,.0f",
-            height=500,
-            showlegend=True
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Gráfica de convergencia
-        st.subheader("📉 Convergencia hacia la capitalización continua")
-        
-        # Crear datos para gráfica de líneas
-        frecuencias_num = []
-        montos = []
-        
-        for r in resultados:
-            if r["m (veces al año)"] != "∞":
-                m_val = r["m (veces al año)"]
-                frecuencias_num.append(m_val)
-                montos.append(r["Monto acumulado"])
-        
-        # Ordenar por frecuencia
-        orden = np.argsort(frecuencias_num)
-        frecuencias_ordenadas = np.array(frecuencias_num)[orden]
-        montos_ordenados = np.array(montos)[orden]
-        
-        fig2 = go.Figure()
-        
-        fig2.add_trace(go.Scatter(
-            x=frecuencias_ordenadas,
-            y=montos_ordenados,
-            mode='lines+markers',
-            name='Monto acumulado',
-            line=dict(color='blue', width=2),
-            marker=dict(size=8)
-        ))
-        
-        # Línea asintótica
-        fig2.add_hline(y=monto_continuo, line_dash="dash", line_color="red",
-                       annotation_text=f"Asíntota: ${monto_continuo:,.0f}")
-        
-        fig2.update_layout(
-            title="Convergencia del monto hacia la capitalización continua",
-            xaxis_title="Frecuencia de capitalización (veces por año)",
-            yaxis_title="Monto acumulado ($)",
-            xaxis_type="log",
-            yaxis_tickformat="$,.0f",
-            height=450,
-            showlegend=True
-        )
-        
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # Tabla completa
-    st.subheader("📋 Tabla completa de resultados")
-    st.dataframe(
-        df.style.format({
-            "Monto acumulado": "${:,.2f}"
-        }),
-        use_container_width=True
+    tipo = st.selectbox(
+        "Conversión",
+        [
+            "Nominal a efectiva e instantánea",
+            "Instantánea a efectiva"
+        ]
     )
-    
-    # Explicación de fórmulas
-    with st.expander("📖 Ver fórmulas utilizadas"):
-        st.markdown("""
-        ### Fórmulas según el Excel:
-        
-        **Para frecuencias m ≥ 1 (anual, semestral, etc.):**
+
+    if tipo == "Nominal a efectiva e instantánea":
+        i_nom = st.number_input("Tasa nominal i(m)", value=0.40)
+        m = st.number_input("m", value=2.0)
+
+        i_ef = (1 + i_nom / m) ** m - 1
+        d = m * np.log(1 + i_nom / m)
+
+        st.success(f"Tasa efectiva: {i_ef:.6f}")
+        st.success(f"Tasa instantánea: {d:.6f}")
+
+    else:
+        d = st.number_input("Tasa instantánea d", value=0.005)
+        i = np.exp(d) - 1
+
+        st.success(f"Tasa efectiva: {i:.6f}")
+
+# ==============================
+# VALOR FUTURO
+# ==============================
+elif menu == "Valor Futuro":
+    st.header("Valor Futuro")
+
+    C0 = st.number_input("Capital inicial", value=20000.0)
+    i = st.number_input("Tasa efectiva", value=0.068)
+    n = st.number_input("Número de periodos", value=6)
+
+    VF = C0 * (1 + i) ** n
+
+    st.success(f"Valor Futuro = {VF:,.2f}")
+
+    periodos = np.arange(0, n + 1)
+    valores = C0 * (1 + i) ** periodos
+
+    fig, ax = plt.subplots()
+    ax.plot(periodos, valores)
+    ax.set_xlabel("Periodo")
+    ax.set_ylabel("Valor")
+    ax.set_title("Crecimiento del capital")
+
+    st.pyplot(fig)
+
+# ==============================
+# VALOR PRESENTE
+# ==============================
+elif menu == "Valor Presente":
+    st.header("Valor Presente")
+
+    VF = st.number_input("Valor futuro", value=245000.0)
+    i = st.number_input("Tasa efectiva", value=0.112)
+    n = st.number_input("Número de periodos", value=9)
+
+    VP = VF / ((1 + i) ** n)
+
+    st.success(f"Valor Presente = {VP:,.2f}")
+
+    periodos = np.arange(0, n + 1)
+    valores = VF / ((1 + i) ** periodos)
+
+    fig, ax = plt.subplots()
+    ax.plot(periodos, valores)
+    ax.set_title("Descuento del valor")
+    ax.set_xlabel("Periodo")
+    ax.set_ylabel("Valor")
+
+    st.pyplot(fig)
+
+# ==============================
+# TASA DE RENDIMIENTO
+# ==============================
+elif menu == "Tasa de rendimiento anual":
+    st.header("Tasa de rendimiento anual")
+
+    C0 = st.number_input("Valor inicial", value=4582500.0)
+    Cn = st.number_input("Valor final", value=9360000.0)
+    n = st.number_input("Número de periodos", value=10)
+
+    i = (Cn / C0) ** (1 / n) - 1
+
+    st.success(f"Tasa anual = {i:.6%}")
+
+# ==============================
+# NÚMERO DE PERIODOS
+# ==============================
+elif menu == "Número de periodos":
+    st.header("Número de periodos")
+
+    C0 = st.number_input("Valor inicial", value=50000.0)
+    Cn = st.number_input("Valor final", value=245000.0)
+    i = st.number_input("Tasa efectiva", value=0.043)
+
+    n = np.log(Cn / C0) / np.log(1 + i)
+
+    st.success(f"Número de periodos = {n:.2f}")
+
+# ==============================
+# VF RENTAS
+# ==============================
+elif menu == "VF Rentas Periódicas":
+    st.header("Valor Futuro de Rentas")
+
+    renta = st.number_input("Renta", value=1000.0)
+    i = st.number_input("Tasa por periodo", value=0.05)
+    n = st.number_input("Número de pagos", value=12)
+
+    vf = renta * (((1 + i) ** n - 1) / i)
+
+    st.success(f"Valor Futuro = {vf:,.2f}")
+
+    periodos = np.arange(1, n + 1)
+    acumulado = [renta * (((1 + i) ** t - 1) / i) for t in periodos]
+
+    fig, ax = plt.subplots()
+    ax.plot(periodos, acumulado)
+    ax.set_title("Acumulación de rentas")
+    ax.set_xlabel("Periodo")
+    ax.set_ylabel("Valor Futuro")
+
+    st.pyplot(fig)
+
+# ==============================
+# VP RENTAS
+# ==============================
+elif menu == "VP Rentas Periódicas":
+    st.header("Valor Presente de Rentas")
+
+    renta = st.number_input("Renta", value=6100.0)
+    i = st.number_input("Tasa por periodo", value=0.05)
+    n = st.number_input("Número de pagos", value=5)
+
+    vp = renta * ((1 - (1 + i) ** (-n)) / i)
+
+    st.success(f"Valor Presente = {vp:,.2f}")
+
+# ==============================
+# TABLAS DE AMORTIZACIÓN
+# ==============================
+elif menu == "Tablas de amortización":
+    st.header("Tabla de amortización")
+
+    prestamo = st.number_input("Monto del préstamo", value=500000.0)
+    tasa = st.number_input("Tasa anual", value=0.12)
+    años = st.number_input("Años", value=5)
+    pagos_por_año = st.number_input("Pagos por año", value=12)
+
+    n = int(años * pagos_por_año)
+    i = tasa / pagos_por_año
+
+    pago = npf.pmt(i, n, -prestamo)
+
+    saldo = prestamo
+    tabla = []
+
+    for k in range(1, n + 1):
+        interes = saldo * i
+        amortizacion = pago - interes
+        saldo -= amortizacion
+
+        tabla.append([
+            k,
+            round(pago, 2),
+            round(interes, 2),
+            round(amortizacion, 2),
+            round(max(saldo, 0), 2)
+        ])
+
+    df = pd.DataFrame(
+        tabla,
+        columns=["Periodo", "Pago", "Interés", "Amortización", "Saldo"]
+    )
+
+    st.success(f"Pago periódico = {pago:,.2f}")
+    st.dataframe(df)
+
+    fig, ax = plt.subplots()
+    ax.plot(df["Periodo"], df["Saldo"])
+    ax.set_title("Saldo insoluto")
+    ax.set_xlabel("Periodo")
+    ax.set_ylabel("Saldo")
+
+    st.pyplot(fig)
+
+# ==============================
+# RENTAS CRECIENTES
+# ==============================
+elif menu == "Rentas crecientes":
+    st.header("Rentas crecientes geométricas")
+
+    tipo = st.selectbox(
+        "Tipo",
+        ["Valor Futuro", "Valor Presente"]
+    )
+
+    R1 = st.number_input("Primer pago", value=400.0)
+    i = st.number_input("Tasa de interés", value=0.0369)
+    q = st.number_input("Tasa de crecimiento", value=0.005)
+    n = st.number_input("Número de periodos", value=10)
+
+    if i != q:
+        if tipo == "Valor Futuro":
+            vf = R1 * (((1 + i) ** n - (1 + q) ** n) / (i - q))
+            st.success(f"Valor Futuro = {vf:,.2f}")
+        else:
+            vp = (R1 / (i - q)) * (1 - ((1 + q) / (1 + i)) ** n)
+            st.success(f"Valor Presente = {vp:,.2f}")
+    else:
+        st.error("La tasa i no puede ser igual a q")
+
+# ==============================
+# BONOS
+# ==============================
+elif menu == "Bonos":
+    st.header("Valuación de Bonos")
+
+    VN = st.number_input("Valor nominal", value=1000.0)
+    cupon = st.number_input("Tasa cupón", value=0.08)
+    ytm = st.number_input("Yield to maturity", value=0.04)
+    T = st.number_input("Años al vencimiento", value=10)
+    m = st.number_input("Pagos por año", value=1)
+
+    C = VN * cupon / m
+    n = int(T * m)
+    r = ytm / m
+
+    precio = sum(C / ((1 + r) ** t) for t in range(1, n + 1))
+    precio += VN / ((1 + r) ** n)
+
+    st.success(f"Precio del bono = {precio:,.2f}")
+
+# ==============================
+# ACCIONES
+# ==============================
+elif menu == "Acciones":
+    st.header("Valuación de Acciones")
+
+    metodo = st.selectbox(
+        "Método",
+        [
+            "Modelo Gordon",
+            "Múltiplo PE"
+        ]
+    )
+
+    if metodo == "Modelo Gordon":
+        D0 = st.number_input("Dividendo actual", value=5.0)
+        R = st.number_input("Rendimiento requerido", value=0.18)
+        g = st.number_input("Crecimiento", value=0.05)
+
+        P0 = (D0 * (1 + g)) / (R - g)
+
+        st.success(f"Precio de la acción = {P0:,.2f}")
+
+    else:
+        PE = st.number_input("PE Benchmark", value=18.0)
+        EPS = st.number_input("EPS", value=2.35)
+
+        precio = PE * EPS
+
+        st.success(f"Precio estimado = {precio:,.2f}")
+
+# ==============================
+# FORWARD
+# ==============================
+elif menu == "Forward":
+    st.header("Precio Forward")
+
+    S0 = st.number_input("Precio spot", value=100.0)
+    r = st.number_input("Tasa libre de riesgo", value=0.08)
+    T = st.number_input("Tiempo", value=1.0)
+
+    F0 = S0 * (1 + r) ** T
+
+    st.success(f"Precio forward = {F0:,.2f}")
+
+# ==============================
+# OPCIONES BLACK-SCHOLES
+# ==============================
+elif menu == "Opciones Black-Scholes":
+    st.header("Opciones Black-Scholes")
+
+    S = st.number_input("Precio del activo", value=34.97)
+    K = st.number_input("Strike", value=34.97)
+    r = st.number_input("Tasa libre de riesgo", value=0.0681)
+    sigma = st.number_input("Volatilidad", value=0.20)
+    T = st.number_input("Tiempo a vencimiento", value=1.0)
+
+    d1 = (np.log(S / K) + (r + sigma**2 / 2) * T) / (sigma * np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+
+    call = S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+    put = K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+
+    st.success(f"Precio Call = {call:.4f}")
+    st.success(f"Precio Put = {put:.4f}")
+
+    precios = np.linspace(0.5 * K, 1.5 * K, 100)
+    calls = []
+
+    for s in precios:
+        d1_tmp = (np.log(s / K) + (r + sigma**2 / 2) * T) / (sigma * np.sqrt(T))
+        d2_tmp = d1_tmp - sigma * np.sqrt(T)
+        c_tmp = s * norm.cdf(d1_tmp) - K * np.exp(-r * T) * norm.cdf(d2_tmp)
+        calls.append(c_tmp)
+
+    fig, ax = plt.subplots()
+    ax.plot(precios, calls)
+    ax.set_title("Precio Call vs Precio Spot")
+    ax.set_xlabel("Precio Spot")
+    ax.set_ylabel("Precio Call")
+
+    st.pyplot(fig)
