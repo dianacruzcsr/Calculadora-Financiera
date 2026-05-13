@@ -962,22 +962,149 @@ elif menu == "Tablas de amortización":
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "Rentas crecientes":
     st.header("Rentas crecientes geométricas")
-
+    
+    st.markdown("""
+    **Rentas que crecen a una tasa geométrica q (por período), realizadas durante nm períodos, con una tasa de interés efectiva iₘ**
+    
+    Fórmula de Valor Futuro (cuando iₘ ≠ qₘ):
+    
+    $$VF = R_1 \\times \\frac{(1+i_m)^{nm} - (1+q_m)^{nm}}{i_m - q_m}$$
+    
+    Donde:
+    - $R_1$ = primer pago
+    - $i_m$ = tasa de interés por período = $i^{(m)}/m$
+    - $q_m$ = tasa de crecimiento por período = $(1+q)^{1/m} - 1$ (cuando q es anual)
+    - $nm$ = número total de períodos = $n \\times m$
+    """)
+    
     tipo = st.selectbox("Tipo", ["Valor Futuro", "Valor Presente"])
-    R1 = st.number_input("Primer pago", value=400.0)
-    i = st.number_input("Tasa de interés", value=0.0369, format="%.4f")
-    q = st.number_input("Tasa de crecimiento", value=0.005, format="%.4f")
-    n = st.number_input("Número de periodos", value=10, min_value=1)
-
-    if i != q:
-        if tipo == "Valor Futuro":
-            vf = R1 * (((1 + i) ** n - (1 + q) ** n) / (i - q))
-            st.success(f"Valor Futuro = {vf:,.2f}")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        R1 = st.number_input("Primer pago R₁", value=400.0, format="%.2f", help="Valor del primer pago")
+        
+        # Opción para ingresar tasas
+        modo_tasa = st.radio(
+            "Ingreso de tasas",
+            ["Tasa nominal i(m) y crecimiento anual q", "Tasas por período (iₘ y qₘ)"],
+            help="Seleccione cómo desea ingresar las tasas"
+        )
+        
+        if modo_tasa == "Tasa nominal i(m) y crecimiento anual q":
+            i_nom = st.number_input("Tasa nominal i(m)", value=0.04, step=0.001, format="%.4f", help="Tasa nominal anual capitalizable m veces")
+            q_anual = st.number_input("Tasa de crecimiento anual q", value=0.005, step=0.001, format="%.4f", help="Tasa de crecimiento geométrica anual")
+            m = st.number_input("Frecuencia m (períodos por año)", value=6.0, min_value=1.0, step=1.0, format="%.0f", help="Número de períodos por año")
+            n = st.number_input("Años n", value=42, min_value=1, step=1, help="Número de años")
+            
+            # Convertir a tasas por período
+            im = i_nom / m                                      # Tasa por período
+            qm = (1 + q_anual) ** (1 / m) - 1                   # Tasa de crecimiento por período
+            nm = n * m                                          # Total de períodos
+            
+            st.info(f"""
+            **Tasas convertidas:**
+            - Tasa por período (iₘ): `{im:.6%}`
+            - Crecimiento por período (qₘ): `{qm:.6%}`
+            - Total períodos (nm): `{nm:.0f}`
+            """)
         else:
-            vp = (R1 / (i - q)) * (1 - ((1 + q) / (1 + i)) ** n)
-            st.success(f"Valor Presente = {vp:,.2f}")
-    else:
-        st.error("La tasa i no puede ser igual a q")
+            im = st.number_input("Tasa de interés por período iₘ", value=0.0062, step=0.0001, format="%.6f", help="Tasa efectiva por período")
+            qm = st.number_input("Tasa de crecimiento por período qₘ", value=0.00083, step=0.0001, format="%.6f", help="Crecimiento geométrico por período (ej: 0.083% = 0.00083)")
+            nm = st.number_input("Número total de períodos nm", value=252, min_value=1, step=1, help="Total de períodos (n × m)")
+            
+            st.caption(f"💡 **Ejemplo:** Si n=42 años y m=6 períodos/año → nm = 42 × 6 = 252 períodos")
+    
+    with col2:
+        st.subheader("Resultados")
+        
+        if im == qm:
+            st.error("⚠️ La tasa de interés iₘ no puede ser igual a la tasa de crecimiento qₘ")
+            if tipo == "Valor Futuro":
+                st.latex(r"VF = R_1 \times nm \times (1+i_m)^{nm-1}")
+                if im > 0:
+                    vf = R1 * nm * (1 + im) ** (nm - 1)
+                    st.success(f"Valor Futuro (caso especial iₘ = qₘ) = {vf:,.2f}")
+            else:
+                st.latex(r"VP = R_1 \times nm \times (1+i_m)^{-1}")
+                if im > 0:
+                    vp = R1 * nm / (1 + im)
+                    st.success(f"Valor Presente (caso especial iₘ = qₘ) = {vp:,.2f}")
+        else:
+            if tipo == "Valor Futuro":
+                # Fórmula corregida: VF = R1 * ((1+im)^nm - (1+qm)^nm) / (im - qm)
+                factor_vf = ((1 + im) ** nm - (1 + qm) ** nm) / (im - qm)
+                vf = R1 * factor_vf
+                
+                st.success(f"**Valor Futuro = {vf:,.2f}**")
+                st.latex(r"VF = R_1 \times \frac{(1+i_m)^{nm} - (1+q_m)^{nm}}{i_m - q_m}")
+                st.caption(f"Factor de VF = {factor_vf:.4f}")
+            else:
+                # Fórmula de Valor Presente: VP = R1 * (1 - ((1+qm)/(1+im))^nm) / (im - qm)
+                factor_vp = (1 - ((1 + qm) / (1 + im)) ** nm) / (im - qm)
+                vp = R1 * factor_vp
+                
+                st.success(f"**Valor Presente = {vp:,.2f}**")
+                st.latex(r"VP = R_1 \times \frac{1 - \left(\frac{1+q_m}{1+i_m}\right)^{nm}}{i_m - q_m}")
+                st.caption(f"Factor de VP = {factor_vp:.4f}")
+    
+    # Gráfico de evolución de los pagos
+    if nm > 0 and nm <= 500:  # Limitar para rendimiento
+        st.subheader("📈 Evolución de los pagos y su valor futuro")
+        
+        periodos = np.arange(1, int(nm) + 1)
+        
+        # Valor de cada pago (crecimiento geométrico)
+        pagos = R1 * (1 + qm) ** (periodos - 1)
+        
+        # Valor futuro acumulado de cada pago (hasta el final)
+        vf_individual = pagos * (1 + im) ** (nm - periodos)
+        vf_acumulado = np.cumsum(vf_individual)
+        
+        fig, ax = plt.subplots(figsize=(12, 6))
+        
+        # Eje izquierdo: valor de los pagos
+        ax.plot(periodos, pagos, color="#22d3ee", linewidth=2, label="Valor del pago")
+        ax.set_xlabel("Período")
+        ax.set_ylabel("Valor del pago", color="#22d3ee")
+        ax.tick_params(axis='y', labelcolor="#22d3ee")
+        ax.grid(True, alpha=0.3)
+        
+        # Eje derecho: valor futuro acumulado
+        ax2 = ax.twinx()
+        ax2.plot(periodos, vf_acumulado, color="#f59e0b", linewidth=2, label="Valor futuro acumulado")
+        ax2.set_ylabel("Valor futuro acumulado", color="#f59e0b")
+        ax2.tick_params(axis='y', labelcolor="#f59e0b")
+        
+        # Línea horizontal del VF total
+        if tipo == "Valor Futuro":
+            vf_total = vf if 'vf' in dir() else vf_acumulado[-1]
+        else:
+            vf_total = vf_acumulado[-1]
+        ax2.axhline(vf_total, color="#10b981", linestyle="--", alpha=0.7, label=f"VF total = {vf_total:,.0f}")
+        
+        # Títulos y leyendas
+        ax.set_title("Evolución de los pagos crecientes y su valor futuro acumulado")
+        lines1, labels1 = ax.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax.legend(lines1 + lines2, labels1 + labels2, loc="upper left")
+        
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+        
+        # Mostrar primeros y últimos pagos
+        st.subheader("📋 Detalle de pagos")
+        
+        # Crear DataFrame de muestra
+        muestra = pd.DataFrame({
+            "Período": periodos[:10].tolist() + ["..."] + periodos[-5:].tolist(),
+            "Pago": [f"{pagos[i]:,.2f}" for i in range(10)] + ["..."] + [f"{pagos[i]:,.2f}" for i in range(-5, 0)],
+            "VF al final": [f"{vf_individual[i]:,.2f}" for i in range(10)] + ["..."] + [f"{vf_individual[i]:,.2f}" for i in range(-5, 0)]
+        })
+        st.dataframe(muestra, use_container_width=True, hide_index=True)
+        
+        st.caption(f"**Resumen:** {nm} períodos | Primer pago: ${R1:,.2f} | Último pago: ${pagos[-1]:,.2f}")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DETERMINACIÓN DE YIELD
