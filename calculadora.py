@@ -813,40 +813,150 @@ elif menu == "VP Rentas Periódicas":
         st.pyplot(fig)
         plt.close(fig)
         
-# ══════════════════════════════════════════════════════════════════════════════
-# TABLAS DE AMORTIZACIÓN
-# ══════════════════════════════════════════════════════════════════════════════
 elif menu == "Tablas de amortización":
     st.header("Tabla de amortización")
-
-    prestamo = st.number_input("Monto del préstamo", value=500000.0)
-    tasa = st.number_input("Tasa anual", value=0.12, format="%.4f")
-    años = st.number_input("Años", value=5, min_value=1)
-    pagos_por_año = st.number_input("Pagos por año", value=12, min_value=1)
-
-    n = int(años * pagos_por_año)
-    i = tasa / pagos_por_año
-    pago = npf.pmt(i, n, -prestamo)
-
-    saldo = prestamo
-    tabla = []
-    for k in range(1, n + 1):
-        interes = saldo * i
-        amortizacion = pago - interes
-        saldo -= amortizacion
-        tabla.append([k, round(pago, 2), round(interes, 2),
-                      round(amortizacion, 2), round(max(saldo, 0), 2)])
-
-    df = pd.DataFrame(tabla, columns=["Periodo", "Pago", "Interés", "Amortización", "Saldo"])
-    st.success(f"Pago periódico = {pago:,.2f}")
-    st.dataframe(df, use_container_width=True, hide_index=True)
-
-    fig, ax = plt.subplots()
-    ax.plot(df["Periodo"], df["Saldo"], color="#22d3ee")
-    ax.set_title("Saldo insoluto"); ax.set_xlabel("Periodo"); ax.set_ylabel("Saldo")
-    ax.grid(True)
-    st.pyplot(fig); plt.close(fig)
-
+    
+    st.markdown("""
+    **Amortización de una deuda con valor actual definido, rentas constantes realizadas durante nm períodos con una tasa de interés efectiva iₘ**
+    
+    Se calcula la renta periódica a partir del valor presente (financiamiento) y la tasa de interés.
+    """)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Datos del préstamo
+        VP_total = st.number_input(
+            "Valor presente total (precio de contado)", 
+            value=584_990.0, 
+            format="%.2f",
+            help="Precio total del bien o activo"
+        )
+        
+        enganche = st.number_input(
+            "Enganche", 
+            value=87_749.0, 
+            format="%.2f",
+            help="Pago inicial (no se financia)"
+        )
+        
+        tasa_nominal = st.number_input(
+            "Tasa nominal i(m)", 
+            value=0.1789, 
+            step=0.001, 
+            format="%.4f",
+            help="Tasa nominal anual capitalizable m veces al año"
+        )
+        
+        años = st.number_input(
+            "Años n", 
+            value=5, 
+            min_value=1, 
+            step=1,
+            help="Plazo en años"
+        )
+        
+        pagos_por_año = st.number_input(
+            "Pagos por año m", 
+            value=12, 
+            min_value=1, 
+            step=1,
+            help="Frecuencia de pagos (número de períodos por año)"
+        )
+    
+    # Cálculos
+    financiamiento = VP_total - enganche
+    
+    n = int(años * pagos_por_año)      # nm = número total de períodos
+    i_m = tasa_nominal / pagos_por_año  # im = tasa efectiva por período
+    
+    # Factor de valor presente a(nm, im)
+    if i_m > 0:
+        a_nm_im = (1 - (1 + i_m) ** (-n)) / i_m
+    else:
+        a_nm_im = n
+        st.warning("⚠️ La tasa de interés es cero. Los intereses serán cero en toda la tabla.")
+    
+    # Cálculo de la renta periódica
+    if financiamiento > 0 and a_nm_im > 0:
+        renta = financiamiento / a_nm_im
+    else:
+        renta = 0
+    
+    with col2:
+        st.info(f"""
+        **Resumen del cálculo:**
+        
+        - Valor presente total: **${VP_total:,.2f}**
+        - Enganche: **${enganche:,.2f}**
+        - **Financiamiento: ${financiamiento:,.2f}**
+        - Total períodos (nm): **{n}**
+        - Tasa por período (iₘ): **{i_m:.6%}**
+        - Factor a(nm, iₘ): **{a_nm_im:.8f}**
+        """)
+        
+        if financiamiento > 0:
+            st.success(f"**Renta periódica = ${renta:,.2f}**")
+            st.latex(r"R = \frac{VP_{financiamiento}}{a_{nm,i_m}}")
+        else:
+            st.warning("El financiamiento es cero. No hay deuda que amortizar.")
+    
+    # Generar tabla de amortización
+    if financiamiento > 0 and renta > 0:
+        saldo = financiamiento
+        tabla = []
+        
+        for k in range(1, n + 1):
+            interes = saldo * i_m
+            amortizacion = renta - interes
+            saldo -= amortizacion
+            
+            tabla.append({
+                "Periodo": k,
+                "Saldo inicial": saldo + amortizacion,  # Saldo antes del pago
+                "Interés": interes,
+                "Amortización": amortizacion,
+                "Pago": renta,
+                "Saldo final": max(saldo, 0)
+            })
+        
+        df = pd.DataFrame(tabla)
+        
+        # Formatear para mostrar
+        df_display = df.copy()
+        for col in ["Saldo inicial", "Interés", "Amortización", "Pago", "Saldo final"]:
+            df_display[col] = df_display[col].apply(lambda x: f"{x:,.2f}")
+        
+        st.subheader("📊 Tabla de amortización")
+        
+        # Mostrar primeras filas
+        st.dataframe(df_display, use_container_width=True, hide_index=True)
+        
+        # Gráfico del saldo
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.plot(df["Periodo"], df["Saldo final"], color="#22d3ee", linewidth=2)
+        ax.fill_between(df["Periodo"], 0, df["Saldo final"], color="#22d3ee", alpha=0.3)
+        ax.set_xlabel("Período")
+        ax.set_ylabel("Saldo insoluto")
+        ax.set_title("Evolución del saldo de la deuda")
+        ax.grid(True, alpha=0.3)
+        st.pyplot(fig)
+        plt.close(fig)
+        
+        # Mostrar resumen estadístico
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total pagado", f"${renta * n:,.2f}")
+        with col2:
+            st.metric("Total intereses", f"${(renta * n) - financiamiento:,.2f}")
+        with col3:
+            st.metric("Saldo final", f"${df['Saldo final'].iloc[-1]:,.2f}")
+        
+        # Verificación de consistencia
+        st.caption(f"✅ Verificación: Suma de amortizaciones = ${df['Amortización'].sum():,.2f} | Financiamiento = ${financiamiento:,.2f}")
+        
+    else:
+        st.warning("No se puede generar la tabla de amortización. Verifique que el financiamiento y la renta sean positivos.")
 # ══════════════════════════════════════════════════════════════════════════════
 # RENTAS CRECIENTES
 # ══════════════════════════════════════════════════════════════════════════════
