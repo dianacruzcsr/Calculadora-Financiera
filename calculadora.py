@@ -964,7 +964,6 @@ elif menu == "Rentas crecientes":
     st.header("Rentas crecientes geométricas")
     
     st.markdown("""
-    **Rentas que crecen a una tasa geométrica q (por período), realizadas durante nm períodos, con una tasa de interés efectiva iₘ**
     
     Fórmula de Valor Futuro (cuando iₘ ≠ qₘ):
     
@@ -1092,20 +1091,6 @@ elif menu == "Rentas crecientes":
         plt.tight_layout()
         st.pyplot(fig)
         plt.close(fig)
-        
-        # Mostrar primeros y últimos pagos
-        st.subheader("📋 Detalle de pagos")
-        
-        # Crear DataFrame de muestra
-        muestra = pd.DataFrame({
-            "Período": periodos[:10].tolist() + ["..."] + periodos[-5:].tolist(),
-            "Pago": [f"{pagos[i]:,.2f}" for i in range(10)] + ["..."] + [f"{pagos[i]:,.2f}" for i in range(-5, 0)],
-            "VF al final": [f"{vf_individual[i]:,.2f}" for i in range(10)] + ["..."] + [f"{vf_individual[i]:,.2f}" for i in range(-5, 0)]
-        })
-        st.dataframe(muestra, use_container_width=True, hide_index=True)
-        
-        st.caption(f"**Resumen:** {nm} períodos | Primer pago: ${R1:,.2f} | Último pago: ${pagos[-1]:,.2f}")
-
 # ══════════════════════════════════════════════════════════════════════════════
 # DETERMINACIÓN DE YIELD
 # ══════════════════════════════════════════════════════════════════════════════
