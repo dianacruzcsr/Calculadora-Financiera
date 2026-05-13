@@ -344,21 +344,85 @@ elif menu == "Valor Futuro":
 elif menu == "Valor Presente":
     st.header("Valor Presente")
 
-    VF = st.number_input("Valor futuro", value=245000.0)
-    i = st.number_input("Tasa efectiva", value=0.112, format="%.4f")
-    n = st.number_input("Número de periodos", value=9, min_value=1)
+    tipo_vp = st.selectbox(
+        "Tipo de descuento",
+        [
+            "Tasa efectiva anual  —  C₀ = Cₙ(1+i)⁻ⁿ",
+            "Tasa efectiva por subperíodo  —  C₀ = Cₙ(1+iₘ)⁻ⁿᵐ",
+            "Tasa instantánea  —  C₀ = Cₙ·e⁻ᵟⁿ",
+        ],
+    )
 
-    VP = VF / ((1 + i) ** n)
-    st.success(f"Valor Presente = {VP:,.2f}")
+    # ── 1. Tasa efectiva anual ────────────────────────────────────────────────
+    if tipo_vp.startswith("Tasa efectiva anual"):
+        col1, _ = st.columns(2)
+        with col1:
+            Cn = st.number_input("Valor futuro Cₙ", value=245_000.0, format="%.2f")
+            i  = st.number_input("Tasa efectiva anual i", value=0.112, step=0.001, format="%.4f")
+            n  = st.number_input("Número de períodos n", value=9, min_value=1, step=1)
 
-    periodos = np.arange(0, n + 1)
-    valores = VF / ((1 + i) ** periodos)
+        VP = Cn * (1 + i) ** (-n)
+        st.success(f"C₀ = {VP:,.2f}")
+        st.latex(r"C_0 = C_n \times (1+i)^{-n}")
 
-    fig, ax = plt.subplots()
-    ax.plot(periodos, valores, color="#22d3ee")
-    ax.set_title("Descuento del valor"); ax.set_xlabel("Periodo"); ax.set_ylabel("Valor")
-    ax.grid(True)
-    st.pyplot(fig); plt.close(fig)
+        periodos = np.arange(0, n + 1)
+        valores  = Cn * (1 + i) ** (-periodos)
+        fig, ax  = plt.subplots()
+        ax.plot(periodos, valores, color="#22d3ee")
+        ax.set_title("Descuento del valor"); ax.set_xlabel("Período"); ax.set_ylabel("Valor")
+        ax.grid(True)
+        st.pyplot(fig); plt.close(fig)
+
+    # ── 2. Tasa efectiva por subperíodo (iₘ) ─────────────────────────────────
+    elif tipo_vp.startswith("Tasa efectiva por subperíodo"):
+        col1, _ = st.columns(2)
+        with col1:
+            Cn  = st.number_input("Valor futuro Cₙ", value=1_000.0, format="%.2f")
+            i_m = st.number_input("Tasa nominal i(m)", value=0.10, step=0.001, format="%.4f",
+                                  help="Tasa nominal anual capitalizable m veces")
+            n   = st.number_input("Número de años n", value=10, min_value=1, step=1)
+            m   = st.number_input("Frecuencia m (subperíodos/año)", value=2.0, min_value=0.01,
+                                  step=0.25, format="%.2f")
+
+        im  = i_m / m
+        nm  = n * m
+        VP  = Cn * (1 + im) ** (-nm)
+
+        st.success(f"Tasa efectiva por subperíodo iₘ = {im:.6%}")
+        st.success(f"Total subperíodos nm = {nm:,.2f}")
+        st.success(f"C₀ = {VP:,.2f}")
+        st.latex(r"i_m = \frac{i^{(m)}}{m}")
+        st.latex(r"C_0 = C_n \times (1+i_m)^{-nm}")
+
+        pasos   = np.linspace(0, nm, 300)
+        valores = Cn * (1 + im) ** (-pasos)
+        fig, ax = plt.subplots()
+        ax.plot(pasos, valores, color="#22d3ee")
+        ax.set_xlabel("Subperíodos"); ax.set_ylabel("Valor")
+        ax.set_title("Descuento del valor (subperíodos)")
+        ax.grid(True)
+        st.pyplot(fig); plt.close(fig)
+
+    # ── 3. Tasa instantánea ───────────────────────────────────────────────────
+    elif tipo_vp.startswith("Tasa instantánea"):
+        col1, _ = st.columns(2)
+        with col1:
+            Cn    = st.number_input("Valor futuro Cₙ", value=1_000.0, format="%.2f")
+            delta = st.number_input("Tasa instantánea δ", value=0.10, step=0.001, format="%.4f")
+            n     = st.number_input("Número de períodos n", value=10, min_value=1, step=1)
+
+        VP = Cn * np.exp(-delta * n)
+        st.success(f"C₀ = {VP:,.2f}")
+        st.latex(r"C_0 = C_n \times e^{-\delta n}")
+
+        periodos = np.linspace(0, n, 300)
+        valores  = Cn * np.exp(-delta * periodos)
+        fig, ax  = plt.subplots()
+        ax.plot(periodos, valores, color="#10b981")
+        ax.set_xlabel("Período"); ax.set_ylabel("Valor")
+        ax.set_title("Descuento con tasa instantánea")
+        ax.grid(True)
+        st.pyplot(fig); plt.close(fig)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TASA DE RENDIMIENTO
