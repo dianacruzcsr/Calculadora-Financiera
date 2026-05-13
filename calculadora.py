@@ -1131,9 +1131,7 @@ elif menu == "Bonos":
     
     st.markdown("""
     **Valuación de bonos (dada la tasa cupón, cupón, yield, VN, T)**
-    
-    El precio de un bono es el valor presente de sus cupones más el valor presente del valor nominal:
-    
+        
     $$B = C \\times \\frac{1 - (1+r)^{-n}}{r} + VN \\times (1+r)^{-n}$$
     
     Donde:
@@ -1370,16 +1368,8 @@ elif menu == "Bonos":
             duracion_mod = duracion / (1 + r)
             st.metric("Duración modificada", f"{duracion_mod:.2f}")
         
-        st.caption("""
-        **Interpretación:** La duración de Macaulay es el tiempo promedio ponderado para recibir los flujos de efectivo del bono.
-        La duración modificada estima el cambio porcentual en el precio ante un cambio del 1% en el YTM.
-        """)
         
-        st.info(f"""
-        💡 **Sensibilidad estimada:** 
-        - Un aumento del YTM en 1% → disminución del precio aprox. **{duracion_mod:.2f}%**
-        - Una disminución del YTM en 1% → aumento del precio aprox. **{duracion_mod:.2f}%**
-        """)
+
 # ══════════════════════════════════════════════════════════════════════════════
 # RENDIMIENTO REQUERIDO DE ACCIONES
 # ══════════════════════════════════════════════════════════════════════════════
