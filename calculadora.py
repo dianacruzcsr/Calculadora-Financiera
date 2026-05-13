@@ -1495,25 +1495,253 @@ elif menu == "Acciones: rendimiento requerido":
 # ══════════════════════════════════════════════════════════════════════════════
 # ACCIONES
 # ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# ACCIONES
+# ══════════════════════════════════════════════════════════════════════════════
 elif menu == "Acciones":
     st.header("Valuación de Acciones")
-
-    metodo = st.selectbox("Método", ["Modelo Gordon", "Múltiplo PE"])
-
-    if metodo == "Modelo Gordon":
-        D0 = st.number_input("Dividendo actual", value=5.0)
-        R = st.number_input("Rendimiento requerido", value=0.18, format="%.4f")
-        g = st.number_input("Crecimiento", value=0.05, format="%.4f")
-        if R <= g:
-            st.error("El rendimiento requerido debe ser mayor que la tasa de crecimiento (R > g)")
-        else:
-            P0 = (D0 * (1 + g)) / (R - g)
-            st.success(f"Precio de la acción = {P0:,.2f}")
-    else:
-        PE = st.number_input("PE Benchmark", value=18.0)
-        EPS = st.number_input("EPS", value=2.35)
-        st.success(f"Precio estimado = {PE * EPS:,.2f}")
-
+    
+    st.markdown("""
+    **Modelos de valuación de acciones basados en dividendos**
+    """)
+    
+    metodo = st.selectbox(
+        "Método de valuación",
+        [
+            "Crecimiento constante (Modelo Gordon)",
+            "Crecimiento no constante durante t períodos, luego constante",
+            "Crecimiento en dos etapas (g1 por t períodos, luego g2)",
+        ]
+    )
+    
+    # ══════════════════════════════════════════════════════════════════════════
+    # MÉTODO 1: CRECIMIENTO CONSTANTE (MODELO GORDON)
+    # ══════════════════════════════════════════════════════════════════════════
+    if metodo == "Crecimiento constante (Modelo Gordon)":
+        st.markdown("""
+        **Modelo de Gordon:**
+        
+        $$P_0 = \\frac{D_0 \\times (1+g)}{R - g} = \\frac{D_1}{R - g}$$
+        
+        $$P_t = P_0 \\times (1+g)^t$$
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            D0 = st.number_input("Dividendo actual D₀", value=1.95, format="%.2f", help="Dividendo pagado en el período actual")
+            R = st.number_input("Rendimiento requerido R", value=0.105, step=0.001, format="%.4f", help="Tasa de rendimiento esperada por el inversor")
+            g = st.number_input("Tasa de crecimiento del dividendo g", value=0.04, step=0.001, format="%.4f", help="Tasa de crecimiento constante a perpetuidad")
+            t = st.number_input("Período t para calcular Pₜ", value=15, min_value=0, step=1, help="Años para proyectar el precio futuro")
+        
+        with col2:
+            if R <= g:
+                st.error("⚠️ El rendimiento requerido (R) debe ser mayor que la tasa de crecimiento (g)")
+            else:
+                D1 = D0 * (1 + g)
+                P0 = D1 / (R - g)
+                Pt = P0 * (1 + g) ** t
+                
+                st.success(f"""
+                **Resultados:**
+                
+                | Variable | Valor |
+                |----------|-------|
+                | Dividendo año 1 (D₁) | **${D1:,.2f}** |
+                | Precio actual (P₀) | **${P0:,.2f}** |
+                | Precio en año {t} (P_{t}) | **${Pt:,.2f}** |
+                """)
+                
+                st.latex(r"P_0 = \frac{D_0 \times (1+g)}{R - g} = \frac{" + f"{D1:,.2f}" + r"}{" + f"{R - g:.2%}" + r"} = " + f"{P0:,.2f}")
+        
+        # Gráfico de crecimiento
+        if R > g:
+            años = np.arange(0, t + 1)
+            dividendos = D0 * (1 + g) ** años
+            precios = P0 * (1 + g) ** años
+            
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.plot(años, dividendos, color="#22d3ee", marker='o', linewidth=2, label="Dividendos")
+            ax.plot(años, precios, color="#f59e0b", marker='s', linewidth=2, label="Precio de la acción")
+            ax.set_xlabel("Años")
+            ax.set_ylabel("Valor")
+            ax.set_title("Crecimiento de dividendos y precio de la acción")
+            ax.legend()
+            ax.grid(True, alpha=0.3)
+            st.pyplot(fig)
+            plt.close(fig)
+    
+    # ══════════════════════════════════════════════════════════════════════════
+    # MÉTODO 2: CRECIMIENTO NO CONSTANTE (t períodos variable, luego constante)
+    # ══════════════════════════════════════════════════════════════════════════
+    elif metodo == "Crecimiento no constante durante t períodos, luego constante":
+        st.markdown("""
+        **Crecimiento no constante durante t períodos, luego crecimiento constante g:**
+        
+        $$P_0 = \\sum_{i=1}^{t} \\frac{D_i}{(1+R)^i} + \\frac{P_t}{(1+R)^t}$$
+        
+        Donde $P_t = \\frac{D_t \\times (1+g)}{R - g}$ (valor terminal en el año t)
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Parámetros")
+            D0 = st.number_input("Dividendo actual D₀", value=3.15, format="%.2f", key="nc_D0")
+            R = st.number_input("Rendimiento requerido R", value=0.1286, step=0.0001, format="%.4f", key="nc_R")
+            g_largo = st.number_input("Tasa de crecimiento a largo plazo g", value=0.05, step=0.001, format="%.4f", key="nc_g")
+            t = st.number_input("Períodos de crecimiento no constante t", value=4, min_value=1, step=1, key="nc_t")
+            
+            st.subheader("Crecimiento por período")
+            st.markdown("Ingrese la tasa de crecimiento para cada período (como %)")
+            
+            tasas_crecimiento = []
+            dividendos = []
+            
+            for i in range(1, t + 1):
+                col_tasa, col_div = st.columns(2)
+                with col_tasa:
+                    gi = st.number_input(f"g{i} (%)", value=20.0 if i == 1 else 15.0 if i == 2 else 10.0 if i == 3 else 5.0, 
+                                        step=1.0, format="%.1f", key=f"nc_gi_{i}")
+                    tasas_crecimiento.append(gi / 100)
+                with col_div:
+                    if i == 1:
+                        Di = D0 * (1 + tasas_crecimiento[0])
+                    else:
+                        Di = dividendos[i-2] * (1 + tasas_crecimiento[i-1])
+                    dividendos.append(Di)
+                    st.write(f"D{i} = ${Di:.2f}")
+        
+        with col2:
+            if R <= g_largo:
+                st.error("⚠️ R debe ser mayor que g a largo plazo")
+            else:
+                # Calcular valor presente de dividendos
+                vp_dividendos = 0
+                for i in range(t):
+                    Di = dividendos[i]
+                    vp_di = Di / (1 + R) ** (i + 1)
+                    vp_dividendos += vp_di
+                
+                # Valor terminal en año t
+                Dt = dividendos[t-1]
+                Pt = Dt * (1 + g_largo) / (R - g_largo)
+                vp_Pt = Pt / (1 + R) ** t
+                
+                # Precio actual
+                P0 = vp_dividendos + vp_Pt
+                
+                st.success(f"""
+                **Resultados:**
+                
+                | Variable | Valor |
+                |----------|-------|
+                | D{t} (último dividendo no constante) | **${Dt:,.2f}** |
+                | P{t} (valor terminal) | **${Pt:,.2f}** |
+                | VP de dividendos | **${vp_dividendos:,.2f}** |
+                | VP de P{t} | **${vp_Pt:,.2f}** |
+                | **Precio actual (P₀)** | **${P0:,.2f}** |
+                """)
+                
+                st.latex(r"P_0 = \sum_{i=1}^{t} \frac{D_i}{(1+R)^i} + \frac{1}{(1+R)^t} \times \frac{D_t(1+g)}{R-g}")
+                
+                # Mostrar tabla de dividendos
+                st.subheader("📋 Detalle de dividendos")
+                df_dividendos = pd.DataFrame({
+                    "Año": list(range(1, t + 1)),
+                    "Tasa crecimiento": [f"{g*100:.1f}%" for g in tasas_crecimiento],
+                    "Dividendo D": [f"${d:.2f}" for d in dividendos],
+                    "Factor VP": [f"{(1+R)**(-(i+1)):.4f}" for i in range(t)],
+                    "VP del dividendo": [f"${dividendos[i] / (1+R)**(i+1):,.2f}" for i in range(t)]
+                })
+                st.dataframe(df_dividendos, use_container_width=True, hide_index=True)
+    
+    # ══════════════════════════════════════════════════════════════════════════
+    # MÉTODO 3: CRECIMIENTO EN DOS ETAPAS (g1 por t períodos, luego g2)
+    # ══════════════════════════════════════════════════════════════════════════
+    elif metodo == "Crecimiento en dos etapas (g1 por t períodos, luego g2)":
+        st.markdown("""
+        **Crecimiento en dos etapas:**
+        
+        - Etapa 1: Crecimiento a tasa g₁ durante t períodos
+        - Etapa 2: Crecimiento a tasa g₂ a perpetuidad
+        
+        $$P_0 = \\frac{D_0 \\times (1+g_1)}{R - g_1} \\times \\left[1 - \\left(\\frac{1+g_1}{1+R}\\right)^t\\right] + \\frac{P_t}{(1+R)^t}$$
+        
+        Donde $P_t = \\frac{D_0 \\times (1+g_1)^t \\times (1+g_2)}{R - g_2}$
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            D0 = st.number_input("Dividendo actual D₀", value=1.25, format="%.2f", key="2e_D0")
+            R = st.number_input("Rendimiento requerido R", value=0.13, step=0.001, format="%.4f", key="2e_R")
+            g1 = st.number_input("Tasa de crecimiento g₁ (primera etapa)", value=0.28, step=0.001, format="%.4f", key="2e_g1")
+            g2 = st.number_input("Tasa de crecimiento g₂ (segunda etapa)", value=0.06, step=0.001, format="%.4f", key="2e_g2")
+            t = st.number_input("Períodos de crecimiento en primera etapa t", value=8, min_value=1, step=1, key="2e_t")
+        
+        with col2:
+            if R <= g1 or R <= g2:
+                st.error("⚠️ R debe ser mayor que g₁ y g₂")
+            else:
+                # Fórmula simplificada para dos etapas
+                D0_adj = D0 * (1 + g1)
+                factor_base = D0_adj / (R - g1)
+                factor_resta = 1 - ((1 + g1) / (1 + R)) ** t
+                
+                # Valor presente de la primera etapa
+                vp_etapa1 = factor_base * factor_resta
+                
+                # Valor terminal en año t
+                Dt = D0 * (1 + g1) ** t
+                Pt = Dt * (1 + g2) / (R - g2)
+                vp_etapa2 = Pt / (1 + R) ** t
+                
+                # Precio actual
+                P0 = vp_etapa1 + vp_etapa2
+                
+                st.success(f"""
+                **Resultados:**
+                
+                | Variable | Valor |
+                |----------|-------|
+                | VP de primera etapa | **${vp_etapa1:,.2f}** |
+                | Dividendo en año {t} (D{t}) | **${Dt:,.2f}** |
+                | Valor terminal P{t} | **${Pt:,.2f}** |
+                | VP del valor terminal | **${vp_etapa2:,.2f}** |
+                | **Precio actual (P₀)** | **${P0:,.2f}** |
+                """)
+                
+                st.latex(r"P_0 = \frac{D_0(1+g_1)}{R-g_1}\left[1-\left(\frac{1+g_1}{1+R}\right)^t\right] + \frac{D_0(1+g_1)^t(1+g_2)}{(R-g_2)(1+R)^t}")
+                st.latex(r"P_0 = " + f"{vp_etapa1:,.2f}" + r" + " + f"{vp_etapa2:,.2f}" + r" = " + f"{P0:,.2f}")
+                
+                # Mostrar evolución de dividendos
+                st.subheader("📈 Evolución de dividendos")
+                años = np.arange(0, t + 5)
+                dividendos = D0 * (1 + g1) ** np.minimum(años, t)
+                # Aplicar g2 después del año t
+                for i in range(t + 1, len(años)):
+                    dividendos[i] = dividendos[t] * (1 + g2) ** (i - t)
+                
+                fig, ax = plt.subplots(figsize=(10, 5))
+                ax.plot(años, dividendos, color="#22d3ee", marker='o', linewidth=2)
+                ax.axvline(x=t, color="#f59e0b", linestyle="--", alpha=0.7, label=f"Fin etapa g₁ (año {t})")
+                ax.set_xlabel("Años")
+                ax.set_ylabel("Dividendo esperado")
+                ax.set_title("Evolución de dividendos - Dos etapas de crecimiento")
+                ax.legend()
+                ax.grid(True, alpha=0.3)
+                st.pyplot(fig)
+                plt.close(fig)
+                
+                # Mostrar primeros años
+                st.subheader("📋 Dividendos por año")
+                df_dividendos = pd.DataFrame({
+                    "Año": list(range(1, t + 3)),
+                    "Dividendo D": [f"${D0 * (1 + g1) ** i:.2f}" for i in range(1, t + 1)] + [f"${D0 * (1 + g1) ** t * (1 + g2):.2f}", f"${D0 * (1 + g1) ** t * (1 + g2) ** 2:.2f}"],
+                    "Etapa": ["Crecimiento g₁"] * t + ["Crecimiento g₂"] * 2
+                })
+                st.dataframe(df_dividendos, use_container_width=True, hide_index=True)
 # ══════════════════════════════════════════════════════════════════════════════
 # OPCIONES
 # ══════════════════════════════════════════════════════════════════════════════
