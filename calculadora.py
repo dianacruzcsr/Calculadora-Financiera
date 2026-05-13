@@ -48,6 +48,19 @@ if menu == "Conversión de tasas":
         ]
     )
 
+    if menu == "Conversión de tasas":
+    st.header("Conversión de tasas")
+
+    tipo = st.selectbox(
+        "Conversión",
+        [
+            "Nominal a efectiva e instantánea",
+            "Instantánea a efectiva",
+            "Instantánea a nominal",
+            "Nominal a nominal"
+        ]
+    )
+
     if tipo == "Nominal a efectiva e instantánea":
         i_nom = st.number_input("Tasa nominal i(m)", value=0.40)
         m = st.number_input("m", value=2.0)
@@ -58,17 +71,18 @@ if menu == "Conversión de tasas":
         st.success(f"Tasa efectiva: {i_ef:.6f}")
         st.success(f"Tasa instantánea: {d:.6f}")
 
-    else:
-        d = st.number_input("Tasa instantánea d", value=0.005)
+        st.latex(r"i = \left(1+\frac{i^{(m)}}{m}\right)^m -1")
+        st.latex(r"\delta = m\ln\left(1+\frac{i^{(m)}}{m}\right)")
+
+    elif tipo == "Instantánea a efectiva":
+        d = st.number_input("Tasa instantánea δ", value=0.005)
+
         i = np.exp(d) - 1
 
         st.success(f"Tasa efectiva: {i:.6f}")
 
         st.latex(r"i = e^{\delta}-1")
 
-    # ------------------------------
-    # INSTANTÁNEA A NOMINAL
-    # ------------------------------
     elif tipo == "Instantánea a nominal":
         d = st.number_input("Tasa instantánea δ", value=0.07)
         m = st.number_input("m", value=2.0)
@@ -79,10 +93,7 @@ if menu == "Conversión de tasas":
 
         st.latex(r"i^{(m)} = m\left(e^{\delta/m}-1\right)")
 
-    # ------------------------------
-    # NOMINAL A NOMINAL
-    # ------------------------------
-    else:
+    elif tipo == "Nominal a nominal":
         m = st.number_input("Frecuencia m", value=2.0)
         i_m = st.number_input("Tasa nominal i(m)", value=0.10)
         p = st.number_input("Nueva frecuencia p", value=3.0)
