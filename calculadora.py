@@ -1952,15 +1952,388 @@ elif menu == "Opciones":
 # FORWARD
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "Forward":
-    st.header("Precio Forward")
-
-    S0 = st.number_input("Precio spot", value=100.0)
-    r = st.number_input("Tasa libre de riesgo", value=0.08, format="%.4f")
-    T = st.number_input("Tiempo", value=1.0, format="%.2f")
-
-    F0 = S0 * (1 + r) ** T
-    st.success(f"Precio forward = {F0:,.2f}")
-
+    st.header("Precios Forward y Futuros")
+    
+    tipo_forward = st.selectbox(
+        "Tipo de activo subyacente",
+        [
+            "Activos sin ingresos ni costos",
+            "Activos con ingresos conocidos (discretos)",
+            "Activos con retorno (yield) conocido",
+            "Forward sobre monedas",
+            "Forward sobre mercancías",
+            "Valor de un contrato forward",
+        ],
+    )
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 1. ACTIVOS SIN INGRESOS NI COSTOS
+    # ──────────────────────────────────────────────────────────────────────────
+    if tipo_forward == "Activos sin ingresos ni costos":
+        st.markdown("**Determinación de precios Forwards y Futuros para activos sin ingresos ni costos**")
+        st.markdown("""
+        Para un activo que no paga ingresos ni tiene costos de almacenamiento, el precio forward es:
+        
+        $$F_0 = S_0 \\times (1 + r)^T$$
+        
+        Donde:
+        - $S_0$ = Precio spot del activo
+        - $r$ = Tasa libre de riesgo (anual)
+        - $T$ = Tiempo hasta el vencimiento (en años)
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            S0 = st.number_input("Precio spot S₀", value=100.0, step=1.0, format="%.2f", help="Precio actual del activo")
+            r = st.number_input("Tasa libre de riesgo r", value=0.08, step=0.001, format="%.4f", help="Tasa de interés libre de riesgo anual")
+            T = st.number_input("Tiempo hasta vencimiento T (años)", value=1.0, step=0.25, format="%.4f", help="Plazo en años")
+        
+        with col2:
+            if r > 0:
+                F0 = S0 * (1 + r) ** T
+                st.success(f"**Precio Forward (F₀) = ${F0:,.4f}**")
+                st.latex(r"F_0 = S_0 \times (1 + r)^T")
+                
+                st.caption(f"""
+                **Desglose:**
+                - Spot: ${S0:,.2f}
+                - Factor de capitalización: (1 + {r:.2%})^{T} = {(1 + r) ** T:.4f}
+                - **Forward: ${S0:,.2f} × {(1 + r) ** T:.4f} = ${F0:,.4f}**
+                """)
+            else:
+                st.error("La tasa libre de riesgo debe ser mayor que cero")
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 2. ACTIVOS CON INGRESOS CONOCIDOS (DISCRETOS)
+    # ──────────────────────────────────────────────────────────────────────────
+    elif tipo_forward == "Activos con ingresos conocidos (discretos)":
+        st.markdown("**Determinación de precios Forwards y Futuros para activos con ingresos conocidos (discretos)**")
+        st.markdown("""
+        Para un activo que paga ingresos conocidos (como dividendos o cupones) durante la vida del forward:
+        
+        $$F_0 = (S_0 - I) \\times (1 + r)^T$$
+        
+        Donde:
+        - $S_0$ = Precio spot del activo
+        - $I$ = Valor presente de los ingresos esperados
+        - $r$ = Tasa libre de riesgo
+        - $T$ = Tiempo hasta el vencimiento
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            S0 = st.number_input("Precio spot S₀", value=50.0, step=1.0, format="%.2f", help="Precio actual del activo")
+            r = st.number_input("Tasa libre de riesgo r", value=0.08, step=0.001, format="%.4f", help="Tasa de interés libre de riesgo anual")
+            T = st.number_input("Tiempo hasta vencimiento T (años)", value=1.0, step=0.25, format="%.4f", help="Plazo en años")
+            
+            st.subheader("Ingresos esperados")
+            metodo_ingresos = st.radio(
+                "Método de ingreso de ingresos",
+                ["Ingresar valor presente de ingresos (I)", "Ingresar flujos de ingresos futuros"],
+                help="Seleccione cómo desea ingresar los ingresos del activo"
+            )
+            
+            if metodo_ingresos == "Ingresar valor presente de ingresos (I)":
+                I = st.number_input("Valor presente de ingresos I", value=3.907942525, step=0.01, format="%.6f", 
+                                    help="Suma del valor presente de todos los ingresos esperados")
+                st.caption(f"I = ${I:.6f}")
+            else:
+                st.markdown("**Ingrese los flujos de ingresos futuros:**")
+                num_flujos = st.number_input("Número de flujos de ingresos", value=1, min_value=1, max_value=10, step=1)
+                
+                flujos = []
+                I = 0
+                for i in range(int(num_flujos)):
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        monto = st.number_input(f"Monto del flujo {i+1}", value=5.0, step=1.0, format="%.2f", key=f"monto_{i}")
+                    with col_b:
+                        tiempo = st.number_input(f"Tiempo (años) flujo {i+1}", value=0.5, step=0.25, format="%.4f", key=f"tiempo_{i}")
+                    
+                    vp_flujo = monto / (1 + r) ** tiempo
+                    I += vp_flujo
+                    flujos.append({"Monto": monto, "Tiempo (años)": tiempo, "VP": vp_flujo})
+                    st.caption(f"  → VP del flujo {i+1}: ${vp_flujo:.4f}")
+                
+                st.success(f"**Valor presente total de ingresos (I) = ${I:.6f}**")
+        
+        with col2:
+            if r > 0:
+                F0 = (S0 - I) * (1 + r) ** T
+                st.success(f"**Precio Forward (F₀) = ${F0:.6f}**")
+                st.latex(r"F_0 = (S_0 - I) \times (1 + r)^T")
+                
+                st.caption(f"""
+                **Desglose:**
+                - Spot S₀: **${S0:,.2f}**
+                - VP de ingresos I: **${I:.6f}**
+                - S₀ - I: **${S0 - I:.6f}**
+                - Factor (1+r)^T: **{(1 + r) ** T:.6f}**
+                - **Forward: ${S0 - I:.6f} × {(1 + r) ** T:.6f} = ${F0:.6f}**
+                """)
+                
+                # Verificación
+                st.info(f"💡 Si el activo no tuviera ingresos, el forward sería: ${S0 * (1 + r) ** T:.6f}")
+            else:
+                st.error("La tasa libre de riesgo debe ser mayor que cero")
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 3. ACTIVOS CON RETORNO (YIELD) CONOCIDO
+    # ──────────────────────────────────────────────────────────────────────────
+    elif tipo_forward == "Activos con retorno (yield) conocido":
+        st.markdown("**Determinación de precios Forwards y Futuros para activos que ofrecen un retorno (yield) conocido**")
+        st.markdown("""
+        Para un activo que proporciona un rendimiento continuo conocido (q), como un índice de dividendos:
+        
+        $$F_0 = S_0 \\times e^{(r - q)T}$$
+        
+        O en capitalización discreta:
+        
+        $$F_0 = S_0 \\times \\left(\\frac{1+r}{1+q}\\right)^T$$
+        
+        Donde:
+        - $S_0$ = Precio spot del activo
+        - $r$ = Tasa libre de riesgo
+        - $q$ = Tasa de retorno o yield del activo
+        - $T$ = Tiempo hasta el vencimiento
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            S0 = st.number_input("Precio spot S₀", value=100.0, step=1.0, format="%.2f", help="Precio actual del activo")
+            r = st.number_input("Tasa libre de riesgo r", value=0.08, step=0.001, format="%.4f", help="Tasa de interés libre de riesgo anual")
+            q = st.number_input("Tasa de retorno o yield q", value=0.05, step=0.001, format="%.4f", 
+                                help="Rendimiento continuo del activo (ej: dividend yield)")
+            T = st.number_input("Tiempo hasta vencimiento T (años)", value=1.0, step=0.25, format="%.4f", help="Plazo en años")
+            
+            tipo_capitalizacion = st.radio("Tipo de capitalización", ["Continua (e^(r-q)T)", "Discreta ((1+r)/(1+q))^T"])
+        
+        with col2:
+            if tipo_capitalizacion == "Continua (e^(r-q)T)":
+                F0 = S0 * np.exp((r - q) * T)
+                st.latex(r"F_0 = S_0 \times e^{(r - q)T}")
+            else:
+                F0 = S0 * ((1 + r) / (1 + q)) ** T
+                st.latex(r"F_0 = S_0 \times \left(\frac{1+r}{1+q}\right)^T")
+            
+            st.success(f"**Precio Forward (F₀) = ${F0:.6f}**")
+            
+            st.caption(f"""
+            **Desglose:**
+            - Spot S₀: **${S0:,.2f}**
+            - Tasa r: **{r:.2%}**
+            - Yield q: **{q:.2%}**
+            - Diferencial (r - q): **{(r - q):.2%}**
+            - **Forward: ${F0:.6f}**
+            """)
+            
+            # Comparación con caso sin yield
+            F0_sin_yield = S0 * (1 + r) ** T
+            st.info(f"💡 Sin considerar el yield, el forward sería: ${F0_sin_yield:.4f} (diferencia: ${F0_sin_yield - F0:.4f})")
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 4. FORWARD SOBRE MONEDAS
+    # ──────────────────────────────────────────────────────────────────────────
+    elif tipo_forward == "Forward sobre monedas":
+        st.markdown("**Precios Forward o Futuros sobre Monedas**")
+        st.markdown("""
+        Para forward sobre divisas, se utiliza la paridad de tasas de interés:
+        
+        $$F_0 = S_0 \\times \\frac{1 + r_{dom}}{1 + r_{ext}}$$
+        
+        O en capitalización continua:
+        
+        $$F_0 = S_0 \\times e^{(r_{dom} - r_{ext})T}$$
+        
+        Donde:
+        - $S_0$ = Tipo de cambio spot (moneda doméstica por unidad de moneda extranjera)
+        - $r_{dom}$ = Tasa de interés de la moneda doméstica
+        - $r_{ext}$ = Tasa de interés de la moneda extranjera
+        - $T$ = Tiempo hasta el vencimiento
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            S0 = st.number_input("Tipo de cambio spot S₀", value=20.0, step=0.5, format="%.4f", 
+                                 help="Precio en moneda doméstica por unidad de moneda extranjera")
+            r_dom = st.number_input("Tasa interés moneda doméstica r_dom", value=0.08, step=0.001, format="%.4f",
+                                    help="Tasa de interés del país doméstico")
+            r_ext = st.number_input("Tasa interés moneda extranjera r_ext", value=0.05, step=0.001, format="%.4f",
+                                    help="Tasa de interés del país extranjero")
+            T = st.number_input("Tiempo hasta vencimiento T (años)", value=1.0, step=0.25, format="%.4f", help="Plazo en años")
+            
+            tipo_cap = st.radio("Capitalización", ["Discreta", "Continua (e^(r_dom - r_ext)T)"])
+        
+        with col2:
+            if tipo_cap == "Discreta":
+                F0 = S0 * (1 + r_dom) ** T / (1 + r_ext) ** T
+                st.latex(r"F_0 = S_0 \times \frac{(1 + r_{dom})^T}{(1 + r_{ext})^T}")
+            else:
+                F0 = S0 * np.exp((r_dom - r_ext) * T)
+                st.latex(r"F_0 = S_0 \times e^{(r_{dom} - r_{ext})T}")
+            
+            st.success(f"**Precio Forward (F₀) = ${F0:.6f}**")
+            
+            st.caption(f"""
+            **Desglose:**
+            - Spot: {S0:,.4f}
+            - r_dom: {r_dom:.2%} | r_ext: {r_ext:.2%}
+            - Diferencial: {(r_dom - r_ext):.2%}
+            - **Forward: {F0:.6f}**
+            """)
+            
+            # Interpretación
+            if r_dom > r_ext:
+                st.info(f"💡 La moneda doméstica tiene tasa más alta → Forward **mayor** que spot (premio forward)")
+            elif r_dom < r_ext:
+                st.warning(f"⚠️ La moneda doméstica tiene tasa más baja → Forward **menor** que spot (descuento forward)")
+            else:
+                st.info(f"ℹ️ Tasas iguales → Forward = Spot")
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 5. FORWARD SOBRE MERCANCÍAS
+    # ──────────────────────────────────────────────────────────────────────────
+    elif tipo_forward == "Forward sobre mercancías":
+        st.markdown("**Precios Forward o Futuros de mercancías**")
+        st.markdown("""
+        Para mercancías que tienen costos de almacenamiento (U) y/o conveniencia:
+        
+        $$F_0 = (S_0 + U) \\times (1 + r)^T$$
+        
+        O si el costo de almacenamiento es un porcentaje (u):
+        
+        $$F_0 = S_0 \\times (1 + r + u)^T$$
+        
+        Donde:
+        - $S_0$ = Precio spot de la mercancía
+        - $U$ = Valor presente de los costos de almacenamiento
+        - $u$ = Tasa de costo de almacenamiento (como porcentaje)
+        - $r$ = Tasa libre de riesgo
+        - $T$ = Tiempo hasta el vencimiento
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            S0 = st.number_input("Precio spot S₀", value=100.0, step=1.0, format="%.2f", help="Precio actual de la mercancía")
+            r = st.number_input("Tasa libre de riesgo r", value=0.08, step=0.001, format="%.4f", help="Tasa de interés libre de riesgo anual")
+            T = st.number_input("Tiempo hasta vencimiento T (años)", value=1.0, step=0.25, format="%.4f", help="Plazo en años")
+            
+            tipo_costo = st.radio(
+                "Tipo de costo de almacenamiento",
+                ["Costo fijo (U)", "Costo como porcentaje (u)"]
+            )
+            
+            if tipo_costo == "Costo fijo (U)":
+                U = st.number_input("Valor presente de costos de almacenamiento U", value=5.0, step=0.5, format="%.4f",
+                                    help="Valor presente de todos los costos de almacenamiento")
+                F0 = (S0 + U) * (1 + r) ** T
+                st.latex(r"F_0 = (S_0 + U) \times (1 + r)^T")
+            else:
+                u = st.number_input("Tasa de costo de almacenamiento u", value=0.03, step=0.001, format="%.4f",
+                                    help="Costo de almacenamiento como porcentaje anual")
+                F0 = S0 * (1 + r + u) ** T
+                st.latex(r"F_0 = S_0 \times (1 + r + u)^T")
+        
+        with col2:
+            st.success(f"**Precio Forward (F₀) = ${F0:.6f}**")
+            
+            if tipo_costo == "Costo fijo (U)":
+                st.caption(f"""
+                **Desglose:**
+                - Spot S₀: **${S0:,.2f}**
+                - Costos almacenamiento U: **${U:.4f}**
+                - S₀ + U: **${S0 + U:.4f}**
+                - Factor (1+r)^T: **{(1 + r) ** T:.4f}**
+                - **Forward: ${F0:.6f}**
+                """)
+            else:
+                st.caption(f"""
+                **Desglose:**
+                - Spot S₀: **${S0:,.2f}**
+                - Costos u: **{u:.2%}**
+                - Tasa total (r+u): **{(r + u):.2%}**
+                - Factor (1+r+u)^T: **{(1 + r + u) ** T:.4f}**
+                - **Forward: ${F0:.6f}**
+                """)
+            
+            # Comparación con caso sin costos
+            F0_sin_costos = S0 * (1 + r) ** T
+            st.info(f"💡 Sin costos de almacenamiento, el forward sería: ${F0_sin_costos:.4f}")
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # 6. VALOR DE UN CONTRATO FORWARD
+    # ──────────────────────────────────────────────────────────────────────────
+    elif tipo_forward == "Valor de un contrato forward":
+        st.markdown("**Valor de un contrato forward (posición larga y corta)**")
+        st.markdown("""
+        El valor de un contrato forward en un momento dado es:
+        
+        **Para una posición larga (comprador):**
+        $$V_{largo} = (F_0 - K) \\times (1 + r)^{-T}$$
+        
+        **Para una posición corta (vendedor):**
+        $$V_{corto} = (K - F_0) \\times (1 + r)^{-T}$$
+        
+        Donde:
+        - $F_0$ = Precio forward actual del activo subyacente
+        - $K$ = Precio de entrega estipulado en el contrato
+        - $r$ = Tasa libre de riesgo
+        - $T$ = Tiempo restante hasta el vencimiento
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            F0 = st.number_input("Precio forward actual F₀", value=105.0, step=1.0, format="%.4f", 
+                                 help="Precio forward del activo en el mercado actual")
+            K = st.number_input("Precio de entrega K (strike)", value=100.0, step=1.0, format="%.4f",
+                                help="Precio acordado en el contrato forward")
+            r = st.number_input("Tasa libre de riesgo r", value=0.08, step=0.001, format="%.4f",
+                                help="Tasa de interés libre de riesgo anual")
+            T = st.number_input("Tiempo restante hasta vencimiento T (años)", value=1.0, step=0.25, format="%.4f",
+                                help="Plazo restante en años")
+            
+            posicion = st.radio("Posición", ["Larga (comprador)", "Corta (vendedor)"])
+        
+        with col2:
+            factor_desc = (1 + r) ** (-T)
+            
+            if posicion == "Larga (comprador)":
+                valor = (F0 - K) * factor_desc
+                st.success(f"**Valor del contrato (posición larga) = ${valor:.6f}**")
+                st.latex(r"V_{largo} = (F_0 - K) \times (1 + r)^{-T}")
+            else:
+                valor = (K - F0) * factor_desc
+                st.success(f"**Valor del contrato (posición corta) = ${valor:.6f}**")
+                st.latex(r"V_{corto} = (K - F_0) \times (1 + r)^{-T}")
+            
+            st.caption(f"""
+            **Desglose:**
+            - F₀ (forward actual): **${F0:.4f}**
+            - K (precio de entrega): **${K:.4f}**
+            - Diferencial: **${F0 - K:.4f}** {"(F₀ - K)" if posicion == "Larga (comprador)" else "(K - F₀)"}
+            - Factor de descuento (1+r)^(-T): **{factor_desc:.6f}**
+            - **Valor: {abs(F0 - K):.4f} × {factor_desc:.6f} = ${valor:.6f}**
+            """)
+            
+            # Interpretación
+            if F0 > K:
+                if posicion == "Larga (comprador)":
+                    st.success("✅ Posición larga con valor positivo → El comprador tiene ganancia no realizada")
+                else:
+                    st.warning("⚠️ Posición corta con valor negativo → El vendedor tiene pérdida no realizada")
+            elif F0 < K:
+                if posicion == "Larga (comprador)":
+                    st.warning("⚠️ Posición larga con valor negativo → El comprador tiene pérdida no realizada")
+                else:
+                    st.success("✅ Posición corta con valor positivo → El vendedor tiene ganancia no realizada")
+            else:
+                st.info("ℹ️ F₀ = K → El contrato tiene valor cero")
 # ══════════════════════════════════════════════════════════════════════════════
 # OPCIONES BLACK-SCHOLES
 # ══════════════════════════════════════════════════════════════════════════════
