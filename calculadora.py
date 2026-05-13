@@ -69,7 +69,7 @@ if menu == "Conversión de tasas":
         col1, col2 = st.columns(2)
         with col1:
             i_nom = st.number_input("Tasa nominal i(m)", value=0.40, step=0.01, format="%.4f")
-            m = st.number_input("m (frecuencia de capitalización)", value=2, min_value=1, step=1)
+            m = st.number_input("m (frecuencia de capitalización)", value=2.0, min_value=0.01, step=0.25, format="%.2f")
 
         i_ef = (1 + i_nom / m) ** m - 1
         delta = m * np.log(1 + i_nom / m)
@@ -94,7 +94,7 @@ if menu == "Conversión de tasas":
         col1, col2 = st.columns(2)
         with col1:
             delta = st.number_input("Tasa instantánea δ", value=0.07, step=0.001, format="%.4f")
-            m = st.number_input("m (frecuencia)", value=2, min_value=1, step=1)
+            m = st.number_input("m (frecuencia)", value=2.0, min_value=0.01, step=0.25, format="%.2f")
 
         i_nom = m * (np.exp(delta / m) - 1)
 
@@ -107,7 +107,7 @@ if menu == "Conversión de tasas":
         with col1:
             m = st.number_input(
                 "Frecuencia m (capitalización original)",
-                value=2, min_value=1, step=1,
+                value=2.0, min_value=0.01, step=0.25, format="%.2f",
                 help="Número de veces que se capitaliza al año con i(m)",
             )
             i_m = st.number_input(
@@ -117,7 +117,7 @@ if menu == "Conversión de tasas":
             )
             p = st.number_input(
                 "Nueva frecuencia p (capitalización deseada)",
-                value=3, min_value=1, step=1,
+                value=3.0, min_value=0.01, step=0.25, format="%.2f",
                 help="Número de veces que se quiere capitalizar al año",
             )
 
